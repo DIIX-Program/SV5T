@@ -1,108 +1,30 @@
-# SV5T Evaluation System
+# ĐÁNH GIÁ VÀ ĐỊNH HƯỚNG SINH VIÊN 5 TỐT
 
-A web-based system to support students in self-evaluating, tracking, and improving their eligibility for the “Sinh viên 5 Tốt” title.
+## Giới thiệu
+Hệ thống web hỗ trợ sinh viên tự đánh giá mức độ hoàn thành danh hiệu
+“Sinh viên 5 Tốt” dựa trên 5 tiêu chí của Hội Sinh viên Việt Nam.
+Hệ thống đồng thời cung cấp định hướng cải thiện cho từng tiêu chí chưa đạt.
 
----
+## Chức năng chính
+- Nhập dữ liệu đánh giá theo 5 tiêu chí Sinh viên 5 Tốt
+- Tính toán mức độ hoàn thành và phân loại kết quả
+- Trực quan hóa kết quả bằng biểu đồ radar
+- Quản lý minh chứng học tập và rèn luyện
+- Phân quyền người dùng theo vai trò
 
-## 📌 Project Overview
+## Công nghệ sử dụng
+- React.js
+- TypeScript
+- Tailwind CSS
+- Chart.js
+- LocalStorage (giai đoạn prototype)
 
-The SV5T Evaluation System is designed to help students:
-- Self-assess their current status based on official SV5T criteria
-- Identify missing or improvable criteria
-- Receive guidance on how to improve their profile
-- Submit evidence for achievements and activities
+## Phân quyền hệ thống
+- Sinh viên: Thực hiện đánh giá, xem kết quả và định hướng cải thiện
+- Quản trị viên: Quản lý dữ liệu và theo dõi tổng quan hệ thống
 
-At the same time, the system provides administrators with tools to:
-- Monitor student progress
-- Review submitted evidence
-- Manage and publish relevant activities and events
-
----
-
-## 🎯 Objectives
-
-- Standardize the self-evaluation process for “Sinh viên 5 Tốt”
-- Increase transparency in student progress tracking
-- Support students with data-driven insights and visual feedback
-- Assist administrators in managing evaluation data efficiently
-
----
-
-## 🚀 Features
-
-### 👨‍🎓 Student Side
-- Personal information input (Full name, Student ID, Class, Faculty, Email)
-- Self-evaluation based on SV5T criteria
-- Automatic calculation of completion percentage
-- Radar chart visualization of evaluation results
-- Achievement and evidence submission (multiple criteria, multiple images)
-- Recommendations on how to improve incomplete criteria
-- Login to save evaluation results (Student ID or Google login)
-
-### 🛠️ Admin Side
-- Secure admin authentication
-- Student list management with filtering options
-- Review and approval of submitted evidence
-- Event and activity management
-- Overview of students with high completion potential
-- Export data to Excel for backup and reporting purposes
-
----
-
-## 🧠 Evaluation Logic
-
-- **Hard criteria:** Mandatory criteria required for SV5T eligibility  
-- **Soft criteria:** Optional criteria that enhance the profile but do not affect the core eligibility score  
-
-The system calculates the completion percentage based on hard criteria, while soft criteria are used for recommendations and guidance.
-
----
-
-## 📊 Data Visualization
-
-- Radar charts are used to display student performance across all SV5T criteria
-- Visual feedback helps students quickly identify strengths and weaknesses
-
----
-
-## 🛠️ Technology Stack
-
-### Frontend
-- **React.js** – User interface development
-- **TypeScript** – Type-safe logic and data structures
-- **Tailwind CSS** – Responsive and modern UI design
-- **Lucide Icons** – SVG icons for UI clarity
-- **Recharts** – Data visualization and charts
-- **Vite** – Fast build and development tool
-
-### Data Storage
-- **Local Storage (HTML5 Web Storage API)** – Client-side data persistence
-
-### Development Tools
-- **Visual Studio Code**
-- **Git & GitHub**
-- **Postman**
-
----
-
-## 🔐 Access Control
-
-- Role-based access control (RBAC) is implemented
-- Two main roles:
-  - **Student**
-  - **Administrator**
-
-Only authorized administrators can access the management dashboard.
-
----
-
-## 📁 Project Structure
-
-```txt
-src/
- ├── components/
- ├── pages/
- ├── services/
- ├── utils/
- ├── types/
- └── assets/
+## Hướng phát triển
+- Triển khai backend với Node.js và Express.js
+- Kết nối cơ sở dữ liệu MongoDB
+- Tích hợp Google OAuth 2.0
+- Mở rộng thống kê và phân tích dữ liệu
