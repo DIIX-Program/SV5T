@@ -43,7 +43,7 @@ export interface UserProfile {
   fullName?: string; // Thêm trường họ tên (optional để tương thích ngược)
   className: string;
   faculty: string;
-  studentType: StudentType; 
+  studentType: StudentType;
 }
 
 export interface EvidenceFile {
@@ -117,4 +117,29 @@ export interface EvaluationResult {
     volunteer: CategoryResult;
     integration: CategoryResult;
   };
+}
+
+export interface Comment {
+  id: string;
+  author: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface Confession {
+  id: string;
+  content: string;
+  tag: string;
+  createdAt: string;
+  likes: number;
+  commentsList: Comment[]; // Changed from comments: number to list
+  color: string;
+}
+
+export interface Scholarship {
+  id: string;
+  name: string;
+  content: string;
+  expiryDate: string; // ISO Date string
+  createdAt: string;
 }

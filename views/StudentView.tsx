@@ -1,19 +1,22 @@
 import React, { useState } from 'react';
-import { 
+import {
   AuthUser,
-  UserProfile, 
-  CriteriaData, 
-  EvaluationResult, 
-  EvidenceSubmission, 
-  StudentType, 
+  UserProfile,
+  CriteriaData,
+  EvaluationResult,
+  EvidenceSubmission,
+  StudentType,
   UniversityEvent,
-  EvaluationStatus
+  EvaluationStatus,
+  Confession,
+  Scholarship
 } from '../types';
+import ConfessionBoard from '../components/ConfessionBoard';
 import CriteriaForm from '../components/CriteriaForm';
 import ResultDashboard from '../components/ResultDashboard';
 import EvidenceUploader from '../components/EvidenceUploader';
 import { CATEGORY_LABELS } from '../constants';
-import { Sparkles, ArrowRight, Calendar, ExternalLink, UserPlus, Info, Save, ChevronRight } from 'lucide-react';
+import { Sparkles, ArrowRight, Calendar, ExternalLink, UserPlus, Info, Save, ChevronRight, GraduationCap, Clock } from 'lucide-react';
 
 interface Props {
   authUser: AuthUser | null;
@@ -26,14 +29,29 @@ interface Props {
   setSubmissions: (s: EvidenceSubmission[]) => void;
   evaluationResult: EvaluationResult;
   events: UniversityEvent[];
+  confessions: Confession[];
+  setConfessions: (c: Confession[]) => void;
+  scholarships?: Scholarship[];
 }
 
-const StudentView: React.FC<Props> = ({ 
-  authUser, onLogin, profile, setProfile, criteria, setCriteria, submissions, setSubmissions, evaluationResult, events 
+const StudentView: React.FC<Props> = ({
+  authUser, onLogin, profile, setProfile, criteria, setCriteria, submissions, setSubmissions, evaluationResult, events, confessions, setConfessions, scholarships
 }) => {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'confession'>('dashboard');
   const [tempProfile, setTempProfile] = useState<Partial<UserProfile>>({
     studentType: StudentType.UNIVERSITY
   });
+
+  const handleAddConfession = (newConfession: Omit<Confession, 'id' | 'createdAt' | 'likes' | 'comments'>) => {
+    const confession: Confession = {
+      ...newConfession,
+      id: Math.random().toString(36).substr(2, 9),
+      createdAt: new Date().toISOString(),
+      likes: 0,
+      commentsList: []
+    };
+    setConfessions([confession, ...confessions]);
+  };
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -100,13 +118,12 @@ const StudentView: React.FC<Props> = ({
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4">
               <div>
-                <input 
-                  placeholder="Họ và tên" 
-                  className={`w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-4 transition-all border-2 ${
-                    errors.fullName 
-                      ? 'border-red-400 focus:ring-red-100 focus:border-red-400' 
-                      : 'border-slate-200 focus:ring-blue-100'
-                  }`}
+                <input
+                  placeholder="Họ và tên"
+                  className={`w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-4 transition-all border-2 ${errors.fullName
+                    ? 'border-red-400 focus:ring-red-100 focus:border-red-400'
+                    : 'border-slate-200 focus:ring-blue-100'
+                    }`}
                   onChange={e => {
                     setTempProfile({ ...tempProfile, fullName: e.target.value }); // dùng fullName, có thể điều chỉnh dữ liệu sau
                     if (errors.fullName) setErrors({ ...errors, fullName: '' });
@@ -117,16 +134,15 @@ const StudentView: React.FC<Props> = ({
                 )}
               </div>
               <div>
-                <input 
-                  placeholder="Mã số sinh viên (MSSV)" 
-                  className={`w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-4 transition-all border-2 ${
-                    errors.mssv 
-                      ? 'border-red-400 focus:ring-red-100 focus:border-red-400' 
-                      : 'border-slate-200 focus:ring-blue-100'
-                  }`}
+                <input
+                  placeholder="Mã số sinh viên (MSSV)"
+                  className={`w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-4 transition-all border-2 ${errors.mssv
+                    ? 'border-red-400 focus:ring-red-100 focus:border-red-400'
+                    : 'border-slate-200 focus:ring-blue-100'
+                    }`}
                   onChange={e => {
-                    setTempProfile({...tempProfile, mssv: e.target.value});
-                    if (errors.mssv) setErrors({...errors, mssv: ''});
+                    setTempProfile({ ...tempProfile, mssv: e.target.value });
+                    if (errors.mssv) setErrors({ ...errors, mssv: '' });
                   }}
                 />
                 {errors.mssv && (
@@ -135,16 +151,15 @@ const StudentView: React.FC<Props> = ({
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <input 
-                    placeholder="Lớp" 
-                    className={`w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-4 transition-all border-2 ${
-                      errors.className 
-                        ? 'border-red-400 focus:ring-red-100 focus:border-red-400' 
-                        : 'border-slate-200 focus:ring-blue-100'
-                    }`}
+                  <input
+                    placeholder="Lớp"
+                    className={`w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-4 transition-all border-2 ${errors.className
+                      ? 'border-red-400 focus:ring-red-100 focus:border-red-400'
+                      : 'border-slate-200 focus:ring-blue-100'
+                      }`}
                     onChange={e => {
-                      setTempProfile({...tempProfile, className: e.target.value});
-                      if (errors.className) setErrors({...errors, className: ''});
+                      setTempProfile({ ...tempProfile, className: e.target.value });
+                      if (errors.className) setErrors({ ...errors, className: '' });
                     }}
                   />
                   {errors.className && (
@@ -152,9 +167,9 @@ const StudentView: React.FC<Props> = ({
                   )}
                 </div>
                 <div>
-                  <select 
+                  <select
                     className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-slate-200 outline-none focus:ring-4 focus:ring-blue-100 transition-all font-medium"
-                    onChange={e => setTempProfile({...tempProfile, studentType: e.target.value as StudentType})}
+                    onChange={e => setTempProfile({ ...tempProfile, studentType: e.target.value as StudentType })}
                   >
                     <option value={StudentType.UNIVERSITY}>Đại học</option>
                     <option value={StudentType.COLLEGE}>Cao đẳng</option>
@@ -163,16 +178,15 @@ const StudentView: React.FC<Props> = ({
               </div>
 
               <div>
-                <input 
-                  placeholder="Khoa đào tạo" 
-                  className={`w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-4 transition-all border-2 ${
-                    errors.faculty 
-                      ? 'border-red-400 focus:ring-red-100 focus:border-red-400' 
-                      : 'border-slate-200 focus:ring-blue-100'
-                  }`}
+                <input
+                  placeholder="Khoa đào tạo"
+                  className={`w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-4 transition-all border-2 ${errors.faculty
+                    ? 'border-red-400 focus:ring-red-100 focus:border-red-400'
+                    : 'border-slate-200 focus:ring-blue-100'
+                    }`}
                   onChange={e => {
-                    setTempProfile({...tempProfile, faculty: e.target.value});
-                    if (errors.faculty) setErrors({...errors, faculty: ''});
+                    setTempProfile({ ...tempProfile, faculty: e.target.value });
+                    if (errors.faculty) setErrors({ ...errors, faculty: '' });
                   }}
                 />
                 {errors.faculty && (
@@ -180,7 +194,7 @@ const StudentView: React.FC<Props> = ({
                 )}
               </div>
             </div>
-            <button 
+            <button
               onClick={handleContinue}
               className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold text-lg shadow-lg shadow-blue-200 flex items-center justify-center gap-2 transition-all mt-6"
             >
@@ -195,7 +209,7 @@ const StudentView: React.FC<Props> = ({
   const failingCategories = (Object.keys(evaluationResult.categoryResults) as (keyof typeof evaluationResult.categoryResults)[])
     .filter(key => !evaluationResult.categoryResults[key].isHardPassed);
 
-  const recommendedEvents = events.filter(e => 
+  const recommendedEvents = events.filter(e =>
     e.categories.some(cat => failingCategories.includes(cat as any))
   );
 
@@ -210,7 +224,7 @@ const StudentView: React.FC<Props> = ({
               <p className="text-xs text-amber-700">Đăng nhập để lưu hồ sơ vĩnh viễn và theo dõi tiến trình duyệt minh chứng.</p>
             </div>
           </div>
-          <button 
+          <button
             onClick={() => onLogin('google')}
             className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-md shadow-amber-100"
           >
@@ -233,19 +247,49 @@ const StudentView: React.FC<Props> = ({
             </div>
           </header>
 
-          <section>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-black text-xl text-slate-800 uppercase tracking-tight">Hồ sơ Tiêu chí</h3>
-              <div className="flex items-center gap-2 text-xs font-bold text-blue-500 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
-                <Sparkles size={14} /> TỰ ĐÁNH GIÁ (DỰA TRÊN 201-QĐ/TWHSV)
-              </div>
-            </div>
-            <CriteriaForm data={criteria} onChange={setCriteria} />
-          </section>
+          <div className="flex bg-slate-100 p-1 rounded-2xl w-fit">
+            <button
+              onClick={() => setActiveTab('dashboard')}
+              className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'dashboard' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Hồ sơ 5 Tốt
+            </button>
+            <button
+              onClick={() => setActiveTab('confession')}
+              className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'confession' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Góc Tâm Sự
+            </button>
+          </div>
 
-          <section>
-            <EvidenceUploader submissions={submissions} setSubmissions={setSubmissions} userId={authUser?.id || 'guest'} />
-          </section>
+          {activeTab === 'dashboard' ? (
+            <>
+              <section>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="font-black text-xl text-slate-800 uppercase tracking-tight">Hồ sơ Tiêu chí</h3>
+                  <div className="flex items-center gap-2 text-xs font-bold text-blue-500 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+                    <Sparkles size={14} /> TỰ ĐÁNH GIÁ (DỰA TRÊN 201-QĐ/TWHSV)
+                  </div>
+                </div>
+                <CriteriaForm data={criteria} onChange={setCriteria} />
+              </section>
+
+              <section>
+                <EvidenceUploader submissions={submissions} setSubmissions={setSubmissions} userId={authUser?.id || 'guest'} />
+              </section>
+            </>
+          ) : (
+            <ConfessionBoard
+              confessions={confessions}
+              onAddConfession={handleAddConfession}
+              onUpdateConfession={(updatedConfession) => {
+                setConfessions(confessions.map(c => c.id === updatedConfession.id ? updatedConfession : c));
+              }}
+              onDeleteConfession={(id) => {
+                setConfessions(confessions.filter(c => c.id !== id));
+              }}
+            />
+          )}
         </div>
 
         <div className="lg:col-span-5 space-y-8">
@@ -260,8 +304,66 @@ const StudentView: React.FC<Props> = ({
                 <Info size={24} className="text-blue-500" />
                 Lộ trình cải thiện
               </h4>
-              
+
               <div className="space-y-4">
+                {/* SV5T Notification Section */}
+                <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-6 text-white shadow-xl shadow-blue-200/50 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4 opacity-10">
+                    <GraduationCap size={100} />
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-blue-200 mb-2">Thông báo quan trọng</p>
+                  <h3 className="text-xl font-bold mb-3 leading-tight">Xét duyệt danh hiệu Sinh viên 5 Tốt</h3>
+
+                  {(() => {
+                    const today = new Date();
+                    const currentYear = today.getFullYear();
+                    let targetYear = currentYear;
+                    const startOfCycle = new Date(currentYear, 7, 1); // August 1st
+                    if (today >= startOfCycle) {
+                      targetYear = currentYear + 1;
+                    }
+                    const deadlineDate = new Date(targetYear, 7, 1);
+                    const diffTime = Math.abs(deadlineDate.getTime() - today.getTime());
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                    return (
+                      <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/10">
+                        <p className="text-xs font-medium opacity-90 mb-1">Hạn chót nộp hồ sơ:</p>
+                        <div className="flex items-end gap-2">
+                          <span className="text-3xl font-black text-white">{diffDays}</span>
+                          <span className="text-sm font-bold mb-1.5 opacity-80">ngày còn lại</span>
+                        </div>
+                        <p className="text-[10px] opacity-60 mt-2 italic">Tính đến ngày 01/08/{targetYear}</p>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Scholarship Notifications */}
+                {scholarships && scholarships.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 mt-6 mb-2">
+                      <GraduationCap size={16} className="text-amber-500" />
+                      <h4 className="text-sm font-black text-slate-700 uppercase tracking-tight">Học bổng Active</h4>
+                    </div>
+                    {scholarships.map(scholarship => (
+                      <div key={scholarship.id} className="p-5 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-amber-200 transition-all group">
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="px-2 py-0.5 bg-amber-50 text-amber-600 rounded text-[9px] font-black uppercase tracking-widest border border-amber-100">Mới</span>
+                          <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
+                            <Clock size={12} />
+                            <span>{new Date(scholarship.expiryDate).toLocaleDateString('vi-VN')}</span>
+                          </div>
+                        </div>
+                        <h5 className="font-bold text-slate-800 text-sm mb-1 group-hover:text-amber-600 transition-colors leading-snug">{scholarship.name}</h5>
+                        <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{scholarship.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="my-6 border-t border-slate-100"></div>
+
                 {failingCategories.length === 0 ? (
                   <div className="p-5 bg-green-50 border border-green-100 rounded-3xl text-sm text-green-700 font-bold flex items-start gap-3">
                     <Sparkles className="shrink-0 mt-1" size={18} />
@@ -313,13 +415,13 @@ const StudentView: React.FC<Props> = ({
                       <div className="flex items-center justify-between pt-4 border-t border-slate-700/50">
                         <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">📍 {event.location}</span>
                         {event.link ? (
-                          <a 
-                            href={event.link} 
-                            target="_blank" 
+                          <a
+                            href={event.link}
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="text-[10px] text-blue-400 font-black uppercase tracking-widest flex items-center gap-1 hover:text-blue-300 transition-colors"
                           >
-                            Đăng ký <ExternalLink size={12}/>
+                            Đăng ký <ExternalLink size={12} />
                           </a>
                         ) : (
                           <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest italic">Chưa có link</span>

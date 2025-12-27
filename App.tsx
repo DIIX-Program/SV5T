@@ -1,16 +1,18 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  CriteriaData, 
-  StudentType, 
-  EvaluationStatus, 
+import {
+  CriteriaData,
+  StudentType,
+  EvaluationStatus,
   AuthUser,
   UserRole,
   User,
-  UserProfile, 
-  EvidenceSubmission, 
+  UserProfile,
+  EvidenceSubmission,
   EvidenceStatus,
-  UniversityEvent
+  UniversityEvent,
+  Confession,
+  Scholarship
 } from './types';
 import { evaluateReadiness } from './services/evaluationService';
 import StudentView from './views/StudentView';
@@ -18,6 +20,7 @@ import AdminView from './views/AdminView';
 import Footer from './components/Footer';
 import { Shield, LogOut, User as UserIcon, LogIn } from 'lucide-react';
 import bcrypt from 'bcryptjs';
+import { NotificationProvider, useNotificationLogic } from './components/NotificationSystem';
 
 const INITIAL_CRITERIA: CriteriaData = {
   trainingPoints: 0, noDiscipline: true, marxistMember: false, exemplaryYouth: false,
@@ -35,6 +38,12 @@ const DEFAULT_EVENTS: UniversityEvent[] = [
   { id: '4', title: 'Hội thi Tìm hiểu Chủ nghĩa Mác-Lênin', date: '2025-08-05', description: 'Cuộc thi đạo đức cách mạng.', categories: ['ethics'], location: 'Phòng B.201' },
 ];
 
+const NotificationListener = () => {
+  useNotificationLogic();
+  return null;
+};
+
+// Main App Component
 function App() {
   const [authUser, setAuthUser] = useState<AuthUser | null>(() => {
     const saved = localStorage.getItem('sv5t_auth');
@@ -42,7 +51,7 @@ function App() {
   });
 
   const [role, setRole] = useState<'student' | 'admin'>('student');
-  
+
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem('sv5t_users');
     if (saved) {
@@ -52,7 +61,7 @@ function App() {
       const defaultAdmin: User = {
         id: 'admin-1',
         email: 'admin123@sv5t',
-        passwordHash: bcrypt.hashSync('admin123', 10), // Default password: admin123
+        passwordHash: bcrypt.hashSync('admin123', 10),
         role: UserRole.ADMIN,
         name: 'Administrator'
       };
@@ -61,7 +70,7 @@ function App() {
       return initialUsers;
     }
   });
-  
+
   const [profile, setProfile] = useState<UserProfile | null>(() => {
     const saved = localStorage.getItem('sv5t_profile');
     return saved ? JSON.parse(saved) : null;
@@ -82,10 +91,33 @@ function App() {
     return saved ? JSON.parse(saved) : DEFAULT_EVENTS;
   });
 
+  const [confessions, setConfessions] = useState<Confession[]>(() => {
+    const saved = localStorage.getItem('sv5t_confessions');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [loginError, setLoginError] = useState('');
+
+  const [scholarships, setScholarships] = useState<Scholarship[]>(() => {
+    const saved = localStorage.getItem('sv5t_scholarships');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Auto clean expired scholarships
+  useEffect(() => {
+    const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD format
+
+    const validScholarships = scholarships.filter(s => {
+      return s.expiryDate >= today;
+    });
+
+    if (validScholarships.length !== scholarships.length) {
+      setScholarships(validScholarships);
+    }
+  }, [scholarships]);
 
   // Sync to LocalStorage
   useEffect(() => {
@@ -95,12 +127,15 @@ function App() {
     localStorage.setItem('sv5t_criteria', JSON.stringify(criteria));
     localStorage.setItem('sv5t_submissions', JSON.stringify(submissions));
     localStorage.setItem('sv5t_events', JSON.stringify(events));
-  }, [authUser, users, profile, criteria, submissions, events]);
+    localStorage.setItem('sv5t_confessions', JSON.stringify(confessions));
+    localStorage.setItem('sv5t_scholarships', JSON.stringify(scholarships));
+  }, [authUser, users, profile, criteria, submissions, events, confessions, scholarships]);
 
-  const evaluationResult = useMemo(() => 
-    evaluateReadiness(criteria, profile?.studentType || StudentType.UNIVERSITY), 
+  const evaluationResult = useMemo(() =>
+    evaluateReadiness(criteria, profile?.studentType || StudentType.UNIVERSITY),
     [criteria, profile]
   );
+
   // Email validation helper
   const isValidEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -153,143 +188,151 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans antialiased text-slate-900 flex flex-col">
-      {/* Admin Login Modal */}
-      {showAdminLogin && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <h2 className="text-xl font-bold text-center mb-4">Đăng nhập Admin</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={adminUsername}
-                  onChange={(e) => setAdminUsername(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Nhập email"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Mật khẩu
-                </label>
-                <input
-                  type="password"
-                  value={adminPassword}
-                  onChange={(e) => setAdminPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Nhập mật khẩu"
-                />
-              </div>
-              {loginError && (
-                <p className="text-red-500 text-sm">{loginError}</p>
-              )}
-              <div className="flex gap-3">
-                <button
-                  onClick={handleAdminLogin}
-                  className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  Đăng nhập
-                </button>
-                <button
-                  onClick={() => {
-                    setShowAdminLogin(false);
-                    setAdminUsername('');
-                    setAdminPassword('');
-                    setLoginError('');
-                  }}
-                  className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-md hover:bg-gray-400 transition-colors"
-                >
-                  Hủy
-                </button>
+    <NotificationProvider>
+      <NotificationListener />
+      <div className="min-h-screen bg-slate-50 font-sans antialiased text-slate-900 flex flex-col">
+        {/* Admin Login Modal */}
+        {showAdminLogin && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+              <h2 className="text-xl font-bold text-center mb-4">Đăng nhập Admin</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={adminUsername}
+                    onChange={(e) => setAdminUsername(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Nhập email"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Mật khẩu
+                  </label>
+                  <input
+                    type="password"
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Nhập mật khẩu"
+                  />
+                </div>
+                {loginError && (
+                  <p className="text-red-500 text-sm">{loginError}</p>
+                )}
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleAdminLogin}
+                    className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    Đăng nhập
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowAdminLogin(false);
+                      setAdminUsername('');
+                      setAdminPassword('');
+                      setLoginError('');
+                    }}
+                    className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-md hover:bg-gray-400 transition-colors"
+                  >
+                    Hủy
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-
-      <nav className="bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center sticky top-0 z-50 shadow-sm">
-        <div className="flex items-center gap-2">
-          <div className="bg-blue-600 p-2 rounded-lg text-white">
-            <Shield size={20} />
-          </div>
-          <span className="font-bold text-slate-800 tracking-tight hidden sm:inline">SV5T MANAGER</span>
-        </div>
-
-        <div className="flex items-center gap-4">
-          {authUser?.role === UserRole.ADMIN && (
-            <div className="bg-slate-100 rounded-full p-1 flex">
-              <button 
-                onClick={() => setRole('student')}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${role === 'student' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
-              >
-                SINH VIÊN
-              </button>
-              <button 
-                onClick={() => setRole('admin')}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${role === 'admin' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
-              >
-                ADMIN
-              </button>
-            </div>
-          )}
-          
-          {authUser ? (
-            <div className="flex items-center gap-3">
-              <div className="hidden md:block text-right">
-                <p className="text-xs font-bold text-slate-800">{authUser.name}</p>
-                <p className="text-[10px] text-slate-500">{authUser.isGuest ? 'Guest' : 'Member'}</p>
-              </div>
-              <button onClick={handleLogout} className="text-slate-400 hover:text-rose-500 p-2 transition-colors" title="Đăng xuất">
-                <LogOut size={18} />
-              </button>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-               <button onClick={() => handleLogin('guest')} className="text-xs font-bold text-slate-500 hover:text-slate-800 px-4">Xem nhanh</button>
-               <button onClick={() => handleLogin('admin')} className="bg-red-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-red-700 transition-all">
-                 <Shield size={14} /> Admin
-               </button>
-               <button onClick={() => handleLogin('google')} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-blue-700 transition-all">
-                 <LogIn size={14} /> Đăng nhập
-               </button>
-            </div>
-          )}
-        </div>
-      </nav>
-
-      <div className="flex-1">
-        {role === 'student' ? (
-          <StudentView 
-            authUser={authUser}
-            onLogin={handleLogin}
-            profile={profile} 
-            setProfile={setProfile} 
-            criteria={criteria} 
-            setCriteria={setCriteria}
-            submissions={submissions}
-            setSubmissions={setSubmissions}
-            evaluationResult={evaluationResult}
-            events={events}
-          />
-        ) : (
-          <AdminView 
-            submissions={submissions} 
-            setSubmissions={setSubmissions}
-            events={events}
-            setEvents={setEvents}
-            users={users}
-            setUsers={setUsers}
-            currentUser={users.find(u => u.id === authUser?.id) || null}
-          />
         )}
-      </div>
 
-      <Footer />
-    </div>
+        <nav className="bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center sticky top-0 z-50 shadow-sm">
+          <div className="flex items-center gap-2">
+            <div className="bg-blue-600 p-2 rounded-lg text-white">
+              <Shield size={20} />
+            </div>
+            <span className="font-bold text-slate-800 tracking-tight hidden sm:inline">SV5T MANAGER</span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            {authUser?.role === UserRole.ADMIN && (
+              <div className="bg-slate-100 rounded-full p-1 flex">
+                <button
+                  onClick={() => setRole('student')}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${role === 'student' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                  SINH VIÊN
+                </button>
+                <button
+                  onClick={() => setRole('admin')}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${role === 'admin' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                  ADMIN
+                </button>
+              </div>
+            )}
+
+            {authUser ? (
+              <div className="flex items-center gap-3">
+                <div className="hidden md:block text-right">
+                  <p className="text-xs font-bold text-slate-800">{authUser.name}</p>
+                  <p className="text-[10px] text-slate-500">{authUser.isGuest ? 'Guest' : 'Member'}</p>
+                </div>
+                <button onClick={handleLogout} className="text-slate-400 hover:text-rose-500 p-2 transition-colors" title="Đăng xuất">
+                  <LogOut size={18} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <button onClick={() => handleLogin('guest')} className="text-xs font-bold text-slate-500 hover:text-slate-800 px-4">Xem nhanh</button>
+                <button onClick={() => handleLogin('admin')} className="bg-red-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-red-700 transition-all">
+                  <Shield size={14} /> Admin
+                </button>
+                <button onClick={() => handleLogin('google')} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-blue-700 transition-all">
+                  <LogIn size={14} /> Đăng nhập
+                </button>
+              </div>
+            )}
+          </div>
+        </nav>
+
+        <div className="flex-1">
+          {role === 'student' ? (
+            <StudentView
+              authUser={authUser}
+              onLogin={handleLogin}
+              profile={profile}
+              setProfile={setProfile}
+              criteria={criteria}
+              setCriteria={setCriteria}
+              submissions={submissions}
+              setSubmissions={setSubmissions}
+              evaluationResult={evaluationResult}
+              events={events}
+              confessions={confessions}
+              setConfessions={setConfessions}
+              scholarships={scholarships}
+            />
+          ) : (
+            <AdminView
+              submissions={submissions}
+              setSubmissions={setSubmissions}
+              events={events}
+              setEvents={setEvents}
+              users={users}
+              setUsers={setUsers}
+              currentUser={users.find(u => u.id === authUser?.id) || null}
+              scholarships={scholarships}
+              setScholarships={setScholarships}
+            />
+          )}
+        </div>
+
+        <Footer />
+      </div>
+    </NotificationProvider>
   );
 }
 
