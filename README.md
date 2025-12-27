@@ -1,20 +1,30 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# ĐÁNH GIÁ VÀ ĐỊNH HƯỚNG SINH VIÊN 5 TỐT
 
-# Run and deploy your AI Studio app
+## Giới thiệu
+Hệ thống web hỗ trợ sinh viên tự đánh giá mức độ hoàn thành danh hiệu
+“Sinh viên 5 Tốt” dựa trên 5 tiêu chí của Hội Sinh viên Việt Nam.
+Hệ thống đồng thời cung cấp định hướng cải thiện cho từng tiêu chí chưa đạt.
 
-This contains everything you need to run your app locally.
+## Chức năng chính
+- Nhập dữ liệu đánh giá theo 5 tiêu chí Sinh viên 5 Tốt
+- Tính toán mức độ hoàn thành và phân loại kết quả
+- Trực quan hóa kết quả bằng biểu đồ radar
+- Quản lý minh chứng học tập và rèn luyện
+- Phân quyền người dùng theo vai trò
 
-View your app in AI Studio: https://ai.studio/apps/drive/1Uzl96AZOpuOjHEZW4s2A2hGhpu4MMKtQ
+## Công nghệ sử dụng
+- React.js
+- TypeScript
+- Tailwind CSS
+- Chart.js
+- LocalStorage (giai đoạn prototype)
 
-## Run Locally
+## Phân quyền hệ thống
+- Sinh viên: Thực hiện đánh giá, xem kết quả và định hướng cải thiện
+- Quản trị viên: Quản lý dữ liệu và theo dõi tổng quan hệ thống
 
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Hướng phát triển
+- Triển khai backend với Node.js và Express.js
+- Kết nối cơ sở dữ liệu MongoDB
+- Tích hợp Google OAuth 2.0
+- Mở rộng thống kê và phân tích dữ liệu
