@@ -68,10 +68,19 @@ const CriteriaForm: React.FC<Props> = ({ data, onChange }) => {
                     <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Điểm rèn luyện</label>
                     <input 
                       type="number" 
+                      min="0"
+                      max="100"
                       placeholder="Ví dụ: 95"
                       className="w-full p-2.5 rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-blue-500"
                       value={data.trainingPoints || ''}
-                      onChange={(e) => setVal('trainingPoints', Number(e.target.value))}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        if (val >= 0 && val <= 100) {
+                          setVal('trainingPoints', val);
+                        } else if (e.target.value === '') {
+                          setVal('trainingPoints', 0);
+                        }
+                      }}
                     />
                   </div>
                   <div className="flex items-center">
@@ -97,11 +106,20 @@ const CriteriaForm: React.FC<Props> = ({ data, onChange }) => {
                   <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Điểm trung bình (GPA)</label>
                   <input 
                     type="number" 
+                    min="0"
+                    max="4.0"
                     step="0.01"
                     placeholder="Ví dụ: 3.5"
                     className="w-full p-2.5 rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-blue-500"
                     value={data.gpa || ''}
-                    onChange={(e) => setVal('gpa', Number(e.target.value))}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      if (val >= 0 && val <= 4.0) {
+                        setVal('gpa', val);
+                      } else if (e.target.value === '') {
+                        setVal('gpa', 0);
+                      }
+                    }}
                   />
                 </div>
                 <div className="space-y-2">
@@ -134,9 +152,18 @@ const CriteriaForm: React.FC<Props> = ({ data, onChange }) => {
                     <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Số ngày tình nguyện</label>
                     <input 
                       type="number" 
+                      min="0"
+                      placeholder="Ví dụ: 10"
                       className="w-full p-2.5 rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-blue-500"
                       value={data.volunteerDays || ''}
-                      onChange={(e) => setVal('volunteerDays', Number(e.target.value))}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        if (val >= 0) {
+                          setVal('volunteerDays', val);
+                        } else if (e.target.value === '') {
+                          setVal('volunteerDays', 0);
+                        }
+                      }}
                     />
                   </div>
                   <div className="flex items-center">

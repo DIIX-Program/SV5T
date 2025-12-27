@@ -22,6 +22,9 @@ import Footer from './components/Footer';
 import { Shield, LogOut, Menu, X } from 'lucide-react';
 import { NotificationProvider, useNotificationLogic } from './components/NotificationSystem';
 
+// 🔄 API INTEGRATION - Uncomment khi chuyển sang production
+// import { studentAPI, eventAPI } from './services/api';
+
 const INITIAL_CRITERIA: CriteriaData = {
   trainingPoints: 0, noDiscipline: true, marxistMember: false, exemplaryYouth: false,
   gpa: 0, scientificResearch: false, journalArticle: false, conferencePaper: false, invention: false,
@@ -32,10 +35,10 @@ const INITIAL_CRITERIA: CriteriaData = {
 };
 
 const DEFAULT_EVENTS: UniversityEvent[] = [
-  { id: '1', title: 'H?i th?o: Sinh vi�n v?i H?i nh?p s?', date: '2025-05-15', description: 'Trang b? k? n?ng h?i nh?p qu?c t?.', categories: ['integration'], location: 'H?i tr??ng A' },
-  { id: '2', title: 'Gi?i ch?y: SV Kh?e 2025', date: '2025-06-01', description: 'Ki?m tra th? l?c SV kh?e.', categories: ['physical'], location: 'S�n v?n ??ng' },
-  { id: '3', title: 'M�a h� xanh: Chi?n d?ch t�nh nguy?n', date: '2025-07-10', description: 'T�nh nguy?n t?i v�ng cao.', categories: ['volunteer'], location: '??k N�ng' },
-  { id: '4', title: 'H?i thi T�m hi?u Ch? ngh?a M�c-L�nin', date: '2025-08-05', description: 'Cu?c thi ??o ??c c�ch m?ng.', categories: ['ethics'], location: 'Ph�ng B.201' },
+  { id: '1', title: 'Hội thảo: Sinh viên với Hội nhập số', date: '2025-05-15', description: 'Trang bị kỹ năng hội nhập quốc tế.', categories: ['integration'], location: 'Hội trường A' },
+  { id: '2', title: 'Giải chạy: SV Khỏe 2025', date: '2025-06-01', description: 'Kiểm tra thể lực SV khỏe.', categories: ['physical'], location: 'Sân vận động' },
+  { id: '3', title: 'Mùa hè xanh: Chiến dịch tình nguyện', date: '2025-07-10', description: 'Tình nguyện tại vùng cao.', categories: ['volunteer'], location: 'Đắk Nông' },
+  { id: '4', title: 'Hội thi Tìm hiểu Chủ nghĩa Mác-Lênin', date: '2025-08-05', description: 'Cuộc thi đạo đức cách mạng.', categories: ['ethics'], location: 'Phòng B.201' },
 ];
 
 const NotificationListener = () => {
@@ -90,6 +93,30 @@ function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
+  // 🔄 API INTEGRATION - Fetch initial data from API
+  // Uncomment khi chuyển sang production
+  // useEffect(() => {
+  //   const fetchInitialData = async () => {
+  //     if (!authUser) return;
+  //     try {
+  //       // Fetch events from API
+  //       const eventsResponse = await eventAPI.getAll();
+  //       if (eventsResponse.data.success) {
+  //         setEvents(eventsResponse.data.data);
+  //       }
+  //       
+  //       // Fetch scholarships from API
+  //       // const scholarshipsResponse = await scholarshipAPI.getAll();
+  //       // if (scholarshipsResponse.data.success) {
+  //       //   setScholarships(scholarshipsResponse.data.data);
+  //       // }
+  //     } catch (error) {
+  //       console.error('Error fetching initial data:', error);
+  //     }
+  //   };
+  //   fetchInitialData();
+  // }, [authUser]);
+
   // Auto clean expired scholarships
   useEffect(() => {
     const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD format
@@ -103,6 +130,8 @@ function App() {
     }
   }, [scholarships]);
 
+  // 💾 LOCAL STORAGE MODE - Hiện tại đang dùng localStorage
+  // 🔄 TODO: Khi chuyển sang production, thay thế bằng API calls
   // Sync to LocalStorage
   useEffect(() => {
     if (authUser) localStorage.setItem('sv5t_user', JSON.stringify(authUser));
@@ -113,6 +142,19 @@ function App() {
     localStorage.setItem('sv5t_confessions', JSON.stringify(confessions));
     localStorage.setItem('sv5t_scholarships', JSON.stringify(scholarships));
     localStorage.setItem('sv5t_users', JSON.stringify(users));
+
+    // 🔄 API INTEGRATION - Uncomment để sync với database
+    // if (events.length > 0) {
+    //   events.forEach(async (event) => {
+    //     try {
+    //       if (!event.id.startsWith('local_')) { // Chỉ sync events mới
+    //         await eventAPI.create(event);
+    //       }
+    //     } catch (error) {
+    //       console.error('Error syncing event:', error);
+    //     }
+    //   });
+    // }
   }, [authUser, users, profile, criteria, submissions, events, confessions, scholarships]);
 
   const evaluationResult = useMemo(() =>
@@ -133,9 +175,9 @@ function App() {
       setProfile({
         userId: user.id,
         mssv: user.mssv,
-        fullName: user.profile.name || user.name || 'Sinh vi�n',
-        className: user.profile.className || 'Ch?a c?p nh?t',
-        faculty: user.profile.faculty || 'Ch?a c?p nh?t',
+        fullName: user.profile.name || user.name || 'Sinh viên',
+        className: user.profile.className || 'Chưa cập nhật',
+        faculty: user.profile.faculty || 'Chưa cập nhật',
         studentType: user.profile.studentType || StudentType.UNIVERSITY
       });
     }
@@ -151,7 +193,11 @@ function App() {
     setAuthUser(null);
     setProfile(null);
     setCriteria(INITIAL_CRITERIA);
-    setSubmissions([]);
+    
+    // ⚠️ KHÔNG xóa submissions - đây là dữ liệu global cho tất cả users
+    // Submissions cần được giữ lại để admin có thể duyệt hồ sơ từ các sinh viên khác
+    // setSubmissions([]); // ❌ Commented out để giữ data
+    
     setRole('student');
   };
 
@@ -179,7 +225,7 @@ function App() {
             <div className="bg-blue-600 p-2 rounded-lg text-white">
               <Shield size={20} />
             </div>
-            <span className="font-bold text-slate-800 tracking-tight hidden sm:inline">Sinh Vi�n 5 T?t</span>
+            <span className="font-bold text-slate-800 tracking-tight hidden sm:inline">Sinh Viên 5 Tốt</span>
           </div>
 
           <div className="flex items-center gap-4">
@@ -190,13 +236,13 @@ function App() {
                   onClick={() => setRole('student')}
                   className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${role === 'student' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
                 >
-                  SINH VI�N
+                  SINH VIÊN
                 </button>
                 <button 
                   onClick={() => setRole('admin')}
                   className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${role === 'admin' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
                 >
-                  QU?N TR?
+                  QUẢN TRỊ
                 </button>
               </div>
             )}
@@ -205,9 +251,9 @@ function App() {
             <div className="hidden md:flex items-center gap-3">
               <div className="text-right">
                 <p className="text-xs font-bold text-slate-800">{authUser.mssv}</p>
-                <p className="text-[10px] text-slate-500">{authUser.role === 'ADMIN' ? 'Qu?n tr? vi�n' : 'Sinh vi�n'}</p>
+                <p className="text-[10px] text-slate-500">{authUser.role === 'ADMIN' ? 'Quản trị viên' : 'Sinh viên'}</p>
               </div>
-              <button onClick={handleLogout} className="text-slate-400 hover:text-rose-500 p-2 transition-colors" title="??ng xu?t">
+              <button onClick={handleLogout} className="text-slate-400 hover:text-rose-500 p-2 transition-colors" title="Đăng xuất">
                 <LogOut size={18} />
               </button>
             </div>
@@ -231,13 +277,13 @@ function App() {
                   onClick={() => { setRole('student'); setMobileMenuOpen(false); }}
                   className={`flex-1 px-4 py-1.5 rounded-full text-xs font-bold transition-all ${role === 'student' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}
                 >
-                  SINH VI�N
+                  SINH VIÊN
                 </button>
                 <button 
                   onClick={() => { setRole('admin'); setMobileMenuOpen(false); }}
                   className={`flex-1 px-4 py-1.5 rounded-full text-xs font-bold transition-all ${role === 'admin' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}
                 >
-                  QU?N TR?
+                  QUẢN TRỊ
                 </button>
               </div>
             )}
@@ -247,7 +293,7 @@ function App() {
                 onClick={handleLogout}
                 className="w-full px-4 py-2 bg-rose-50 text-rose-600 rounded-lg font-semibold hover:bg-rose-100 transition-colors flex items-center justify-center gap-2"
               >
-                <LogOut size={16} /> ??ng xu?t
+                <LogOut size={16} /> Đăng xuất
               </button>
             </div>
           </div>

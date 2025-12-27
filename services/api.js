@@ -82,6 +82,17 @@ export const analyticsAPI = {
   getRecentAnalytics: () => apiClient.get(`/analytics/recent`)
 };
 
+// Scholarship API
+export const scholarshipAPI = {
+  getAll: (params) => apiClient.get(`/scholarships`, { params }),
+  getById: (id) => apiClient.get(`/scholarships/${id}`),
+  create: (data) => apiClient.post(`/scholarships`, data),
+  update: (id, data) => apiClient.put(`/scholarships/${id}`, data),
+  delete: (id) => apiClient.delete(`/scholarships/${id}`),
+  getActive: () => apiClient.get(`/scholarships/status/active`),
+  getExpired: () => apiClient.get(`/scholarships/status/expired`)
+};
+
 // Utility function to download CSV
 export const downloadCSV = async (params) => {
   try {
@@ -104,5 +115,6 @@ export default {
   studentAPI,
   eventAPI,
   analyticsAPI,
+  scholarshipAPI,
   downloadCSV
 };
