@@ -5,7 +5,7 @@ export enum StudentType {
 }
 
 export enum UserRole {
-  USER = 'USER',
+  STUDENT = 'STUDENT',
   ADMIN = 'ADMIN'
 }
 
@@ -21,29 +21,46 @@ export enum EvidenceStatus {
   REJECTED = 'REJECTED'
 }
 
+// Auth-related interfaces
 export interface AuthUser {
   id: string;
-  name: string;
-  email: string;
+  mssv: string;
   role: UserRole;
-  isGuest: boolean;
-  avatar?: string;
+  token?: string;
 }
 
+export interface AuthCredentials {
+  mssv: string;
+  password: string;
+}
+
+export interface AuthResponse {
+  success: boolean;
+  message: string;
+  user?: AuthUser;
+  token?: string;
+  error?: string;
+}
+
+// User model for backend
 export interface User {
   id: string;
-  email: string;
+  mssv: string;
   passwordHash: string;
   role: UserRole;
-  name: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface UserProfile {
   userId: string;
   mssv: string;
+  name: string;
   className: string;
   faculty: string;
   studentType: StudentType;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface EvidenceFile {

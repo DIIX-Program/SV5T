@@ -1,23 +1,22 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  CriteriaData, 
-  StudentType, 
-  EvaluationStatus, 
+import {
+  CriteriaData,
+  StudentType,
+  EvaluationStatus,
   AuthUser,
   UserRole,
-  User,
-  UserProfile, 
-  EvidenceSubmission, 
+  UserProfile,
+  EvidenceSubmission,
   EvidenceStatus,
   UniversityEvent
 } from './types';
 import { evaluateReadiness } from './services/evaluationService';
+import LandingPage from './components/LandingPage';
 import StudentView from './views/StudentView';
 import AdminView from './views/AdminView';
+import AuthModal from './components/AuthModal';
 import Footer from './components/Footer';
-import { Shield, LogOut, User as UserIcon, LogIn } from 'lucide-react';
-import bcrypt from 'bcryptjs';
+import { Shield, LogOut, Menu, X } from 'lucide-react';
 
 const INITIAL_CRITERIA: CriteriaData = {
   trainingPoints: 0, noDiscipline: true, marxistMember: false, exemplaryYouth: false,
@@ -37,30 +36,14 @@ const DEFAULT_EVENTS: UniversityEvent[] = [
 
 function App() {
   const [authUser, setAuthUser] = useState<AuthUser | null>(() => {
-    const saved = localStorage.getItem('sv5t_auth');
+    const saved = localStorage.getItem('sv5t_user');
     return saved ? JSON.parse(saved) : null;
   });
 
   const [role, setRole] = useState<'student' | 'admin'>('student');
-  
-  const [users, setUsers] = useState<User[]>(() => {
-    const saved = localStorage.getItem('sv5t_users');
-    if (saved) {
-      return JSON.parse(saved);
-    } else {
-      // Seed default admin
-      const defaultAdmin: User = {
-        id: 'admin-1',
-        email: 'admin123@sv5t',
-        passwordHash: bcrypt.hashSync('admin123', 10), // Default password: admin123
-        role: UserRole.ADMIN,
-        name: 'Administrator'
-      };
-      const initialUsers = [defaultAdmin];
-      localStorage.setItem('sv5t_users', JSON.stringify(initialUsers));
-      return initialUsers;
-    }
-  });
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'admin'>('login');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   const [profile, setProfile] = useState<UserProfile | null>(() => {
     const saved = localStorage.getItem('sv5t_profile');
@@ -82,141 +65,90 @@ function App() {
     return saved ? JSON.parse(saved) : DEFAULT_EVENTS;
   });
 
-  const [showAdminLogin, setShowAdminLogin] = useState(false);
-  const [adminUsername, setAdminUsername] = useState('');
-  const [adminPassword, setAdminPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
+  const [users, setUsers] = useState<any[]>(() => {
+    const saved = localStorage.getItem('sv5t_users');
+    return saved ? JSON.parse(saved) : [];
+  });
 
   // Sync to LocalStorage
   useEffect(() => {
-    if (authUser) localStorage.setItem('sv5t_auth', JSON.stringify(authUser));
-    localStorage.setItem('sv5t_users', JSON.stringify(users));
+    if (authUser) localStorage.setItem('sv5t_user', JSON.stringify(authUser));
     if (profile) localStorage.setItem('sv5t_profile', JSON.stringify(profile));
     localStorage.setItem('sv5t_criteria', JSON.stringify(criteria));
     localStorage.setItem('sv5t_submissions', JSON.stringify(submissions));
     localStorage.setItem('sv5t_events', JSON.stringify(events));
-  }, [authUser, users, profile, criteria, submissions, events]);
+    localStorage.setItem('sv5t_users', JSON.stringify(users));
+  }, [authUser, profile, criteria, submissions, events, users]);
 
   const evaluationResult = useMemo(() => 
     evaluateReadiness(criteria, profile?.studentType || StudentType.UNIVERSITY), 
     [criteria, profile]
   );
 
-  const handleLogin = (type: 'google' | 'phone' | 'guest' | 'admin') => {
-    if (type === 'admin') {
-      setShowAdminLogin(true);
-      return;
-    }
-    const newUser: AuthUser = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: type === 'guest' ? 'Khách viếng thăm' : 'Nguyễn Văn A',
-      email: type === 'guest' ? '' : 'sv.nguyenvana@university.edu.vn',
-      role: UserRole.USER,
-      isGuest: type === 'guest'
-    };
-    setAuthUser(newUser);
+  const handleOpenAuthModal = (mode: 'login' | 'register' | 'admin') => {
+    setAuthMode(mode);
+    setShowAuthModal(true);
+    setMobileMenuOpen(false);
   };
 
-  const handleAdminLogin = () => {
-    const user = users.find(u => u.email === adminUsername);
-    if (user && bcrypt.compareSync(adminPassword, user.passwordHash)) {
-      const authUser: AuthUser = {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        isGuest: false
-      };
-      setAuthUser(authUser);
-      setShowAdminLogin(false);
-      setAdminUsername('');
-      setAdminPassword('');
-      setLoginError('');
-    } else {
-      setLoginError('Tên đăng nhập hoặc mật khẩu không đúng');
+  const handleLoginSuccess = (token: string, user: any) => {
+    setAuthUser(user);
+    // Auto-set profile từ backend user data
+    if (user.profile) {
+      setProfile({
+        userId: user.id,
+        mssv: user.mssv,
+        name: user.profile.name || user.name || 'Sinh viên',
+        className: user.profile.className || 'Chưa cập nhật',
+        faculty: user.profile.faculty || 'Chưa cập nhật',
+        studentType: user.profile.studentType || StudentType.UNIVERSITY
+      });
+    }
+    setShowAuthModal(false);
+    if (user.role === 'ADMIN') {
+      setRole('admin');
     }
   };
 
   const handleLogout = () => {
-    localStorage.clear();
+    localStorage.removeItem('sv5t_token');
+    localStorage.removeItem('sv5t_user');
     setAuthUser(null);
     setProfile(null);
     setCriteria(INITIAL_CRITERIA);
     setSubmissions([]);
     setRole('student');
-    window.location.reload();
   };
+
+  if (!authUser) {
+    return (
+      <>
+        <LandingPage onGetStarted={() => handleOpenAuthModal('login')} />
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          onLoginSuccess={handleLoginSuccess}
+          mode={authMode}
+        />
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans antialiased text-slate-900 flex flex-col">
-      {/* Admin Login Modal */}
-      {showAdminLogin && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <h2 className="text-xl font-bold text-center mb-4">Đăng nhập Admin</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={adminUsername}
-                  onChange={(e) => setAdminUsername(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Nhập email"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Mật khẩu
-                </label>
-                <input
-                  type="password"
-                  value={adminPassword}
-                  onChange={(e) => setAdminPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Nhập mật khẩu"
-                />
-              </div>
-              {loginError && (
-                <p className="text-red-500 text-sm">{loginError}</p>
-              )}
-              <div className="flex gap-3">
-                <button
-                  onClick={handleAdminLogin}
-                  className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  Đăng nhập
-                </button>
-                <button
-                  onClick={() => {
-                    setShowAdminLogin(false);
-                    setAdminUsername('');
-                    setAdminPassword('');
-                    setLoginError('');
-                  }}
-                  className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-md hover:bg-gray-400 transition-colors"
-                >
-                  Hủy
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* Navigation */}
       <nav className="bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center sticky top-0 z-50 shadow-sm">
         <div className="flex items-center gap-2">
           <div className="bg-blue-600 p-2 rounded-lg text-white">
             <Shield size={20} />
           </div>
-          <span className="font-bold text-slate-800 tracking-tight hidden sm:inline">SV5T MANAGER</span>
+          <span className="font-bold text-slate-800 tracking-tight hidden sm:inline">Sinh Viên 5 Tốt</span>
         </div>
 
         <div className="flex items-center gap-4">
-          {authUser?.role === UserRole.ADMIN && (
-            <div className="bg-slate-100 rounded-full p-1 flex">
+          {/* Role Switch (Admin only) */}
+          {authUser.role === UserRole.ADMIN && (
+            <div className="hidden md:flex bg-slate-100 rounded-full p-1">
               <button 
                 onClick={() => setRole('student')}
                 className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${role === 'student' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
@@ -227,40 +159,69 @@ function App() {
                 onClick={() => setRole('admin')}
                 className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${role === 'admin' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
               >
-                ADMIN
+                QUẢN TRỊ
               </button>
             </div>
           )}
           
-          {authUser ? (
-            <div className="flex items-center gap-3">
-              <div className="hidden md:block text-right">
-                <p className="text-xs font-bold text-slate-800">{authUser.name}</p>
-                <p className="text-[10px] text-slate-500">{authUser.isGuest ? 'Guest' : 'Member'}</p>
-              </div>
-              <button onClick={handleLogout} className="text-slate-400 hover:text-rose-500 p-2 transition-colors" title="Đăng xuất">
-                <LogOut size={18} />
-              </button>
+          {/* User Menu */}
+          <div className="hidden md:flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-xs font-bold text-slate-800">{authUser.mssv}</p>
+              <p className="text-[10px] text-slate-500">{authUser.role === 'ADMIN' ? 'Quản trị viên' : 'Sinh viên'}</p>
             </div>
-          ) : (
-            <div className="flex gap-2">
-               <button onClick={() => handleLogin('guest')} className="text-xs font-bold text-slate-500 hover:text-slate-800 px-4">Xem nhanh</button>
-               <button onClick={() => handleLogin('admin')} className="bg-red-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-red-700 transition-all">
-                 <Shield size={14} /> Admin
-               </button>
-               <button onClick={() => handleLogin('google')} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-blue-700 transition-all">
-                 <LogIn size={14} /> Đăng nhập
-               </button>
-            </div>
-          )}
+            <button onClick={handleLogout} className="text-slate-400 hover:text-rose-500 p-2 transition-colors" title="Đăng xuất">
+              <LogOut size={18} />
+            </button>
+          </div>
+
+          {/* Mobile Menu */}
+          <button 
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden text-slate-600 hover:text-slate-900"
+          >
+            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
       </nav>
 
+      {/* Mobile Menu */}
+      {mobileMenuOpen && (
+        <div className="md:hidden bg-white border-b border-slate-200 px-6 py-4 space-y-3">
+          {authUser.role === UserRole.ADMIN && (
+            <div className="flex bg-slate-100 rounded-full p-1">
+              <button 
+                onClick={() => { setRole('student'); setMobileMenuOpen(false); }}
+                className={`flex-1 px-4 py-1.5 rounded-full text-xs font-bold transition-all ${role === 'student' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}
+              >
+                SINH VIÊN
+              </button>
+              <button 
+                onClick={() => { setRole('admin'); setMobileMenuOpen(false); }}
+                className={`flex-1 px-4 py-1.5 rounded-full text-xs font-bold transition-all ${role === 'admin' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}
+              >
+                QUẢN TRỊ
+              </button>
+            </div>
+          )}
+          <div className="pt-3 border-t border-slate-200">
+            <p className="text-xs font-bold text-slate-800 mb-3">{authUser.mssv}</p>
+            <button 
+              onClick={handleLogout}
+              className="w-full px-4 py-2 bg-rose-50 text-rose-600 rounded-lg font-semibold hover:bg-rose-100 transition-colors flex items-center justify-center gap-2"
+            >
+              <LogOut size={16} /> Đăng xuất
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
       <div className="flex-1">
         {role === 'student' ? (
           <StudentView 
             authUser={authUser}
-            onLogin={handleLogin}
+            onRequireLogin={() => handleOpenAuthModal('login')}
             profile={profile} 
             setProfile={setProfile} 
             criteria={criteria} 
@@ -278,12 +239,20 @@ function App() {
             setEvents={setEvents}
             users={users}
             setUsers={setUsers}
-            currentUser={users.find(u => u.id === authUser?.id) || null}
+            currentUser={authUser}
           />
         )}
       </div>
 
       <Footer />
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onLoginSuccess={handleLoginSuccess}
+        mode={authMode}
+      />
     </div>
   );
 }
