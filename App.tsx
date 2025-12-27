@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   CriteriaData,
@@ -15,11 +14,12 @@ import {
   Scholarship
 } from './types';
 import { evaluateReadiness } from './services/evaluationService';
+import LandingPage from './components/LandingPage';
 import StudentView from './views/StudentView';
 import AdminView from './views/AdminView';
+import AuthModal from './components/AuthModal';
 import Footer from './components/Footer';
-import { Shield, LogOut, User as UserIcon, LogIn } from 'lucide-react';
-import bcrypt from 'bcryptjs';
+import { Shield, LogOut, Menu, X } from 'lucide-react';
 import { NotificationProvider, useNotificationLogic } from './components/NotificationSystem';
 
 const INITIAL_CRITERIA: CriteriaData = {
@@ -32,10 +32,10 @@ const INITIAL_CRITERIA: CriteriaData = {
 };
 
 const DEFAULT_EVENTS: UniversityEvent[] = [
-  { id: '1', title: 'Hội thảo: Sinh viên với Hội nhập số', date: '2025-05-15', description: 'Trang bị kỹ năng hội nhập quốc tế.', categories: ['integration'], location: 'Hội trường A' },
-  { id: '2', title: 'Giải chạy: SV Khỏe 2025', date: '2025-06-01', description: 'Kiểm tra thể lực SV khỏe.', categories: ['physical'], location: 'Sân vận động' },
-  { id: '3', title: 'Mùa hè xanh: Chiến dịch tình nguyện', date: '2025-07-10', description: 'Tình nguyện tại vùng cao.', categories: ['volunteer'], location: 'Đắk Nông' },
-  { id: '4', title: 'Hội thi Tìm hiểu Chủ nghĩa Mác-Lênin', date: '2025-08-05', description: 'Cuộc thi đạo đức cách mạng.', categories: ['ethics'], location: 'Phòng B.201' },
+  { id: '1', title: 'H?i th?o: Sinh vi�n v?i H?i nh?p s?', date: '2025-05-15', description: 'Trang b? k? n?ng h?i nh?p qu?c t?.', categories: ['integration'], location: 'H?i tr??ng A' },
+  { id: '2', title: 'Gi?i ch?y: SV Kh?e 2025', date: '2025-06-01', description: 'Ki?m tra th? l?c SV kh?e.', categories: ['physical'], location: 'S�n v?n ??ng' },
+  { id: '3', title: 'M�a h� xanh: Chi?n d?ch t�nh nguy?n', date: '2025-07-10', description: 'T�nh nguy?n t?i v�ng cao.', categories: ['volunteer'], location: '??k N�ng' },
+  { id: '4', title: 'H?i thi T�m hi?u Ch? ngh?a M�c-L�nin', date: '2025-08-05', description: 'Cu?c thi ??o ??c c�ch m?ng.', categories: ['ethics'], location: 'Ph�ng B.201' },
 ];
 
 const NotificationListener = () => {
@@ -46,29 +46,18 @@ const NotificationListener = () => {
 // Main App Component
 function App() {
   const [authUser, setAuthUser] = useState<AuthUser | null>(() => {
-    const saved = localStorage.getItem('sv5t_auth');
+    const saved = localStorage.getItem('sv5t_user');
     return saved ? JSON.parse(saved) : null;
   });
 
   const [role, setRole] = useState<'student' | 'admin'>('student');
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'admin'>('login');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem('sv5t_users');
-    if (saved) {
-      return JSON.parse(saved);
-    } else {
-      // Seed default admin
-      const defaultAdmin: User = {
-        id: 'admin-1',
-        email: 'admin123@sv5t',
-        passwordHash: bcrypt.hashSync('admin123', 10),
-        role: UserRole.ADMIN,
-        name: 'Administrator'
-      };
-      const initialUsers = [defaultAdmin];
-      localStorage.setItem('sv5t_users', JSON.stringify(initialUsers));
-      return initialUsers;
-    }
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [profile, setProfile] = useState<UserProfile | null>(() => {
@@ -96,11 +85,6 @@ function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  const [showAdminLogin, setShowAdminLogin] = useState(false);
-  const [adminUsername, setAdminUsername] = useState('');
-  const [adminPassword, setAdminPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
-
   const [scholarships, setScholarships] = useState<Scholarship[]>(() => {
     const saved = localStorage.getItem('sv5t_scholarships');
     return saved ? JSON.parse(saved) : [];
@@ -121,14 +105,14 @@ function App() {
 
   // Sync to LocalStorage
   useEffect(() => {
-    if (authUser) localStorage.setItem('sv5t_auth', JSON.stringify(authUser));
-    localStorage.setItem('sv5t_users', JSON.stringify(users));
+    if (authUser) localStorage.setItem('sv5t_user', JSON.stringify(authUser));
     if (profile) localStorage.setItem('sv5t_profile', JSON.stringify(profile));
     localStorage.setItem('sv5t_criteria', JSON.stringify(criteria));
     localStorage.setItem('sv5t_submissions', JSON.stringify(submissions));
     localStorage.setItem('sv5t_events', JSON.stringify(events));
     localStorage.setItem('sv5t_confessions', JSON.stringify(confessions));
     localStorage.setItem('sv5t_scholarships', JSON.stringify(scholarships));
+    localStorage.setItem('sv5t_users', JSON.stringify(users));
   }, [authUser, users, profile, criteria, submissions, events, confessions, scholarships]);
 
   const evaluationResult = useMemo(() =>
@@ -136,176 +120,148 @@ function App() {
     [criteria, profile]
   );
 
-  // Email validation helper
-  const isValidEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+  const handleOpenAuthModal = (mode: 'login' | 'register' | 'admin') => {
+    setAuthMode(mode);
+    setShowAuthModal(true);
+    setMobileMenuOpen(false);
   };
 
-  const handleLogin = (type: 'google' | 'phone' | 'guest' | 'admin') => {
-    if (type === 'admin') {
-      setShowAdminLogin(true);
-      return;
+  const handleLoginSuccess = (token: string, user: any) => {
+    setAuthUser(user);
+    // Auto-set profile t? backend user data
+    if (user.profile) {
+      setProfile({
+        userId: user.id,
+        mssv: user.mssv,
+        fullName: user.profile.name || user.name || 'Sinh vi�n',
+        className: user.profile.className || 'Ch?a c?p nh?t',
+        faculty: user.profile.faculty || 'Ch?a c?p nh?t',
+        studentType: user.profile.studentType || StudentType.UNIVERSITY
+      });
     }
-    const newUser: AuthUser = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: type === 'guest' ? 'Khách' : 'Nguyễn Văn A',
-      email: type === 'guest' ? '' : 'sv.nguyenvana@university.edu.vn',
-      role: UserRole.USER,
-      isGuest: type === 'guest'
-    };
-    setAuthUser(newUser);
-  };
-
-  const handleAdminLogin = () => {
-    const user = users.find(u => u.email === adminUsername);
-    if (user && bcrypt.compareSync(adminPassword, user.passwordHash)) {
-      const authUser: AuthUser = {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        isGuest: false
-      };
-      setAuthUser(authUser);
-      setShowAdminLogin(false);
-      setAdminUsername('');
-      setAdminPassword('');
-      setLoginError('');
-    } else {
-      setLoginError('Tên đăng nhập hoặc mật khẩu không đúng');
+    setShowAuthModal(false);
+    if (user.role === 'ADMIN') {
+      setRole('admin');
     }
   };
 
   const handleLogout = () => {
-    localStorage.clear();
+    localStorage.removeItem('sv5t_token');
+    localStorage.removeItem('sv5t_user');
     setAuthUser(null);
     setProfile(null);
     setCriteria(INITIAL_CRITERIA);
     setSubmissions([]);
     setRole('student');
-    window.location.reload();
   };
+
+  if (!authUser) {
+    return (
+      <>
+        <LandingPage onGetStarted={() => handleOpenAuthModal('login')} />
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          onLoginSuccess={handleLoginSuccess}
+          mode={authMode}
+        />
+      </>
+    );
+  }
 
   return (
     <NotificationProvider>
       <NotificationListener />
       <div className="min-h-screen bg-slate-50 font-sans antialiased text-slate-900 flex flex-col">
-        {/* Admin Login Modal */}
-        {showAdminLogin && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-              <h2 className="text-xl font-bold text-center mb-4">Đăng nhập Admin</h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={adminUsername}
-                    onChange={(e) => setAdminUsername(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Nhập email"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Mật khẩu
-                  </label>
-                  <input
-                    type="password"
-                    value={adminPassword}
-                    onChange={(e) => setAdminPassword(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Nhập mật khẩu"
-                  />
-                </div>
-                {loginError && (
-                  <p className="text-red-500 text-sm">{loginError}</p>
-                )}
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleAdminLogin}
-                    className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors"
-                  >
-                    Đăng nhập
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowAdminLogin(false);
-                      setAdminUsername('');
-                      setAdminPassword('');
-                      setLoginError('');
-                    }}
-                    className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-md hover:bg-gray-400 transition-colors"
-                  >
-                    Hủy
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
+        {/* Navigation */}
         <nav className="bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center sticky top-0 z-50 shadow-sm">
           <div className="flex items-center gap-2">
             <div className="bg-blue-600 p-2 rounded-lg text-white">
               <Shield size={20} />
             </div>
-            <span className="font-bold text-slate-800 tracking-tight hidden sm:inline">SV5T MANAGER</span>
+            <span className="font-bold text-slate-800 tracking-tight hidden sm:inline">Sinh Vi�n 5 T?t</span>
           </div>
 
           <div className="flex items-center gap-4">
-            {authUser?.role === UserRole.ADMIN && (
-              <div className="bg-slate-100 rounded-full p-1 flex">
-                <button
+            {/* Role Switch (Admin only) */}
+            {authUser.role === UserRole.ADMIN && (
+              <div className="hidden md:flex bg-slate-100 rounded-full p-1">
+                <button 
                   onClick={() => setRole('student')}
                   className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${role === 'student' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
                 >
-                  SINH VIÊN
+                  SINH VI�N
                 </button>
-                <button
+                <button 
                   onClick={() => setRole('admin')}
                   className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${role === 'admin' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
                 >
-                  ADMIN
+                  QU?N TR?
                 </button>
               </div>
             )}
+            
+            {/* User Menu */}
+            <div className="hidden md:flex items-center gap-3">
+              <div className="text-right">
+                <p className="text-xs font-bold text-slate-800">{authUser.mssv}</p>
+                <p className="text-[10px] text-slate-500">{authUser.role === 'ADMIN' ? 'Qu?n tr? vi�n' : 'Sinh vi�n'}</p>
+              </div>
+              <button onClick={handleLogout} className="text-slate-400 hover:text-rose-500 p-2 transition-colors" title="??ng xu?t">
+                <LogOut size={18} />
+              </button>
+            </div>
 
-            {authUser ? (
-              <div className="flex items-center gap-3">
-                <div className="hidden md:block text-right">
-                  <p className="text-xs font-bold text-slate-800">{authUser.name}</p>
-                  <p className="text-[10px] text-slate-500">{authUser.isGuest ? 'Guest' : 'Member'}</p>
-                </div>
-                <button onClick={handleLogout} className="text-slate-400 hover:text-rose-500 p-2 transition-colors" title="Đăng xuất">
-                  <LogOut size={18} />
-                </button>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <button onClick={() => handleLogin('guest')} className="text-xs font-bold text-slate-500 hover:text-slate-800 px-4">Xem nhanh</button>
-                <button onClick={() => handleLogin('admin')} className="bg-red-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-red-700 transition-all">
-                  <Shield size={14} /> Admin
-                </button>
-                <button onClick={() => handleLogin('google')} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-blue-700 transition-all">
-                  <LogIn size={14} /> Đăng nhập
-                </button>
-              </div>
-            )}
+            {/* Mobile Menu */}
+            <button 
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden text-slate-600 hover:text-slate-900"
+            >
+              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
           </div>
         </nav>
 
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden bg-white border-b border-slate-200 px-6 py-4 space-y-3">
+            {authUser.role === UserRole.ADMIN && (
+              <div className="flex bg-slate-100 rounded-full p-1">
+                <button 
+                  onClick={() => { setRole('student'); setMobileMenuOpen(false); }}
+                  className={`flex-1 px-4 py-1.5 rounded-full text-xs font-bold transition-all ${role === 'student' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}
+                >
+                  SINH VI�N
+                </button>
+                <button 
+                  onClick={() => { setRole('admin'); setMobileMenuOpen(false); }}
+                  className={`flex-1 px-4 py-1.5 rounded-full text-xs font-bold transition-all ${role === 'admin' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}
+                >
+                  QU?N TR?
+                </button>
+              </div>
+            )}
+            <div className="pt-3 border-t border-slate-200">
+              <p className="text-xs font-bold text-slate-800 mb-3">{authUser.mssv}</p>
+              <button 
+                onClick={handleLogout}
+                className="w-full px-4 py-2 bg-rose-50 text-rose-600 rounded-lg font-semibold hover:bg-rose-100 transition-colors flex items-center justify-center gap-2"
+              >
+                <LogOut size={16} /> ??ng xu?t
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Main Content */}
         <div className="flex-1">
           {role === 'student' ? (
-            <StudentView
+            <StudentView 
               authUser={authUser}
-              onLogin={handleLogin}
-              profile={profile}
-              setProfile={setProfile}
-              criteria={criteria}
+              onRequireLogin={() => handleOpenAuthModal('login')}
+              profile={profile} 
+              setProfile={setProfile} 
+              criteria={criteria} 
               setCriteria={setCriteria}
               submissions={submissions}
               setSubmissions={setSubmissions}
@@ -316,8 +272,8 @@ function App() {
               scholarships={scholarships}
             />
           ) : (
-            <AdminView
-              submissions={submissions}
+            <AdminView 
+              submissions={submissions} 
               setSubmissions={setSubmissions}
               events={events}
               setEvents={setEvents}
@@ -331,6 +287,14 @@ function App() {
         </div>
 
         <Footer />
+
+        {/* Auth Modal */}
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          onLoginSuccess={handleLoginSuccess}
+          mode={authMode}
+        />
       </div>
     </NotificationProvider>
   );

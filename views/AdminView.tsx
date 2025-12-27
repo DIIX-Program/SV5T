@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { EvidenceSubmission, EvidenceStatus, UniversityEvent, EvaluationStatus, User, Scholarship } from '../types';
 import bcrypt from 'bcryptjs';
 import {
@@ -15,7 +15,6 @@ import {
   Eye,
   Trash2,
   PieChart,
-  // Added Sparkles and ArrowRight to fix "Cannot find name" errors on lines 171 and 185
   Sparkles,
   ArrowRight,
   Settings,
@@ -24,6 +23,7 @@ import {
 import { CATEGORY_LABELS } from '../constants';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import { studentAPI } from '../services/api';
 
 interface Props {
   submissions: EvidenceSubmission[];
@@ -52,6 +52,34 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  
+  // Students data from API
+  const [students, setStudents] = useState<any[]>([]);
+  const [loadingStudents, setLoadingStudents] = useState(false);
+
+  // Fetch students when tab changes to students
+  useEffect(() => {
+    if (tab === 'students') {
+      fetchStudents();
+    }
+  }, [tab]);
+
+  const fetchStudents = async () => {
+    setLoadingStudents(true);
+    try {
+      const response = await studentAPI.getAll();
+      if (response.data.success) {
+        setStudents(response.data.data);
+      } else {
+        console.error('API returned error:', response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching students:', error);
+      alert('Kh�ng th? t?i d? li?u sinh vi�n. Vui l�ng ki?m tra k?t n?i server.');
+    } finally {
+      setLoadingStudents(false);
+    }
+  };
 
   // Event management
   const [showEventForm, setShowEventForm] = useState(false);
@@ -84,7 +112,7 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
   const handleAction = (id: string, status: EvidenceStatus) => {
     let comment = "";
     if (status === EvidenceStatus.REJECTED) {
-      comment = prompt("Nhập lý do từ chối (Vui lòng ghi rõ thiếu minh chứng gì):") || "";
+      comment = prompt("Nh?p l� do t? ch?i (Vui l�ng ghi r� thi?u minh ch?ng g�):") || "";
       if (!comment) return;
     }
     setSubmissions(submissions.map(s => s.id === id ? { ...s, status, adminComment: comment || s.adminComment } : s));
@@ -93,15 +121,15 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
   const handleChangePassword = () => {
     if (!currentUser) return;
     if (!bcrypt.compareSync(currentPassword, currentUser.passwordHash)) {
-      setPasswordError('Mật khẩu hiện tại không đúng');
+      setPasswordError('M?t kh?u hi?n t?i kh�ng ?�ng');
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPasswordError('Mật khẩu mới không khớp');
+      setPasswordError('M?t kh?u m?i kh�ng kh?p');
       return;
     }
     if (newPassword.length < 6) {
-      setPasswordError('Mật khẩu mới phải có ít nhất 6 ký tự');
+      setPasswordError('M?t kh?u m?i ph?i c� �t nh?t 6 k� t?');
       return;
     }
     const updatedUsers = users.map(u =>
@@ -114,18 +142,17 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
     setNewPassword('');
     setConfirmPassword('');
     setPasswordError('');
-    alert('Mật khẩu đã được cập nhật thành công!');
+    alert('M?t kh?u ?� ???c c?p nh?t th�nh c�ng!');
   };
 
   // Event handlers
   const handleAddEvent = () => {
     if (!eventForm.title || !eventForm.date || !eventForm.description || !eventForm.location || eventForm.categories.length === 0) {
-      alert('Vui lòng điền đầy đủ thông tin sự kiện');
+      alert('Vui l�ng ?i?n ??y ?? th�ng tin s? ki?n');
       return;
     }
 
     if (editingEventId) {
-      // Update existing event
       setEvents(events.map(e =>
         e.id === editingEventId
           ? { ...e, ...eventForm }
@@ -133,7 +160,6 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
       ));
       setEditingEventId(null);
     } else {
-      // Create new event
       const newEvent: UniversityEvent = {
         id: Math.random().toString(36).substr(2, 9),
         ...eventForm,
@@ -151,7 +177,7 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
       link: ''
     });
     setShowEventForm(false);
-    alert('Sự kiện đã được ' + (editingEventId ? 'cập nhật' : 'tạo') + ' thành công!');
+    alert('S? ki?n ?� ???c ' + (editingEventId ? 'c?p nh?t' : 't?o') + ' th�nh c�ng!');
   };
 
   const handleEditEvent = (event: UniversityEvent) => {
@@ -183,18 +209,18 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
     s.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Filter and paginate students (mock data)
-  const mockStudents = Array.from({ length: 45 }, (_, i) => ({
-    id: `SV${String(i + 1).padStart(4, '0')}`,
-    mssv: `2024${String(i + 1).padStart(3, '0')}`,
-    name: `Sinh viên ${i + 1}`,
-    faculty: ['Công nghệ Thông tin', 'Kinh tế - Quản trị', 'Cơ khí - Kỹ thuật', 'Ngôn ngữ & Văn hóa'][i % 4],
-    status: ['Đủ điều kiện', 'Gần đủ', 'Chưa đủ'][i % 3],
-    gpa: (3.2 + Math.random() * 0.8).toFixed(2),
-    completionPercent: Math.floor(60 + Math.random() * 40)
+  // Filter and paginate students - using API data
+  const studentList = students.map((student: any) => ({
+    id: student._id,
+    mssv: student.mssv,
+    name: student.fullName,
+    faculty: student.faculty,
+    status: '?? ?i?u ki?n',
+    gpa: student.gpa || 0,
+    completionPercent: 100
   }));
 
-  const filteredStudents = mockStudents.filter(s => {
+  const filteredStudents = studentList.filter(s => {
     if (studentFilters.faculty && s.faculty !== studentFilters.faculty) return false;
     if (studentFilters.status && s.status !== studentFilters.status) return false;
     return true;
@@ -206,49 +232,45 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
   );
   const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
 
+  // Export to Excel using ExcelJS
   const exportToExcel = async () => {
-    if (mockStudents.length === 0) {
-      alert('Không có dữ liệu để xuất');
+    if (studentList.length === 0) {
+      alert('Kh�ng c� d? li?u ?? xu?t');
       return;
     }
 
     try {
       const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet('Danh sách sinh viên');
+      const worksheet = workbook.addWorksheet('Danh s�ch sinh vi�n');
 
-      // ========== HEADER ==========
-      const headerRow = worksheet.addRow(['MSSV', 'Tên sinh viên', 'Khoa', 'GPA', 'Tiến độ (%)', 'Trạng thái']);
+      const headerRow = worksheet.addRow(['MSSV', 'T�n sinh vi�n', 'Khoa', 'GPA', 'Ti?n ?? (%)', 'Tr?ng th�i']);
 
-      // Styling header
       headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
       headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
       headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
 
-      // ========== DATA ROWS ==========
-      mockStudents.forEach(s => {
+      studentList.forEach(s => {
         worksheet.addRow([s.mssv, s.name, s.faculty, s.gpa, s.completionPercent, s.status]);
       });
 
-      // ========== COLUMN WIDTH ==========
       worksheet.columns = [
-        { width: 15 },  // MSSV
-        { width: 25 },  // Tên sinh viên
-        { width: 25 },  // Khoa
-        { width: 10 },  // GPA
-        { width: 15 },  // Tiến độ
-        { width: 15 }   // Trạng thái
+        { width: 15 },
+        { width: 25 },
+        { width: 25 },
+        { width: 10 },
+        { width: 15 },
+        { width: 15 }
       ];
 
-      // ========== EXPORT ==========
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const fileName = `DANH_SACH_SINH_VIEN_SV5T_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.xlsx`;
 
       saveAs(blob, fileName);
-      alert('✅ File Excel đã được xuất thành công!');
+      alert('? File Excel ?� ???c xu?t th�nh c�ng!');
     } catch (error) {
-      console.error('Lỗi xuất Excel:', error);
-      alert('❌ Lỗi khi xuất file Excel');
+      console.error('L?i xu?t Excel:', error);
+      alert('? L?i khi xu?t file Excel');
     }
   };
 
@@ -257,16 +279,16 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
       <aside className="w-72 bg-white border-r border-slate-200 p-8 space-y-2 hidden md:flex flex-col">
         <div className="mb-10">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-            <PieChart size={12} /> Bảng điều khiển
+            <PieChart size={12} /> B?ng ?i?u khi?n
           </p>
           <div className="space-y-1.5">
             {[
-              { id: 'dashboard', icon: BarChart3, label: 'Thống kê tổng quan' },
-              { id: 'students', icon: Users, label: 'Hồ sơ Sinh viên' },
-              { id: 'approvals', icon: FileCheck, label: 'Duyệt hồ sơ (' + stats.pending + ')' },
-              { id: 'scholarships', icon: GraduationCap, label: 'Quản lý Học bổng' },
-              { id: 'events', icon: CalendarPlus, label: 'Quản lý sự kiện' },
-              { id: 'settings', icon: Settings, label: 'Cài đặt' },
+              { id: 'dashboard', icon: BarChart3, label: 'Th?ng k� t?ng quan' },
+              { id: 'students', icon: Users, label: 'H? s? Sinh vi�n' },
+              { id: 'approvals', icon: FileCheck, label: 'Duy?t h? s? (' + stats.pending + ')' },
+              { id: 'scholarships', icon: GraduationCap, label: 'Qu?n l� H?c b?ng' },
+              { id: 'events', icon: CalendarPlus, label: 'Qu?n l� s? ki?n' },
+              { id: 'settings', icon: Settings, label: 'C�i ??t' },
             ].map(item => (
               <button
                 key={item.id}
@@ -285,14 +307,14 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
 
         <div className="mt-auto space-y-4">
           <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-            <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Hệ thống xét duyệt</p>
-            <p className="text-[11px] text-slate-600 leading-relaxed italic">Dữ liệu được bảo mật và backup hàng ngày vào 0h:00.</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">H? th?ng x�t duy?t</p>
+            <p className="text-[11px] text-slate-600 leading-relaxed italic">D? li?u ???c b?o m?t v� backup h�ng ng�y v�o 0h:00.</p>
           </div>
           <button
             onClick={exportToExcel}
             className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
           >
-            <Download size={16} /> Xuất Báo cáo Excel
+            <Download size={16} /> Xu?t B�o c�o Excel
           </button>
         </div>
       </aside>
@@ -302,21 +324,21 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
           <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <header className="flex justify-between items-end">
               <div>
-                <h2 className="text-4xl font-black text-slate-800 tracking-tight">Hệ thống Quản trị</h2>
-                <p className="text-slate-500 font-medium mt-1">Nền tảng xét duyệt Sinh viên 5 Tốt cấp Trường.</p>
+                <h2 className="text-4xl font-black text-slate-800 tracking-tight">H? th?ng Qu?n tr?</h2>
+                <p className="text-slate-500 font-medium mt-1">N?n t?ng x�t duy?t Sinh vi�n 5 T?t c?p Tr??ng.</p>
               </div>
               <div className="bg-white px-5 py-3 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3">
                 <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
-                <p className="text-xs font-bold text-slate-700 uppercase tracking-tight">Trực tuyến</p>
+                <p className="text-xs font-bold text-slate-700 uppercase tracking-tight">Tr?c tuy?n</p>
               </div>
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               {[
-                { label: 'Chờ xử lý', value: stats.pending, color: 'text-amber-600', bg: 'bg-amber-100', icon: Clock },
-                { label: 'Đã chấp thuận', value: stats.approved, color: 'text-green-600', bg: 'bg-green-100', icon: CheckCircle },
-                { label: 'Từ chối/Y/C sửa', value: stats.rejected, color: 'text-rose-600', bg: 'bg-rose-100', icon: XCircle },
-                { label: 'Tổng số hồ sơ', value: stats.totalSubmissions, color: 'text-blue-600', bg: 'bg-blue-100', icon: FileCheck },
+                { label: 'Ch? x? l�', value: stats.pending, color: 'text-amber-600', bg: 'bg-amber-100', icon: Clock },
+                { label: '?� ch?p thu?n', value: stats.approved, color: 'text-green-600', bg: 'bg-green-100', icon: CheckCircle },
+                { label: 'T? ch?i/Y/C s?a', value: stats.rejected, color: 'text-rose-600', bg: 'bg-rose-100', icon: XCircle },
+                { label: 'T?ng s? h? s?', value: stats.totalSubmissions, color: 'text-blue-600', bg: 'bg-blue-100', icon: FileCheck },
               ].map((card, i) => (
                 <div key={i} className="bg-white p-7 rounded-[2rem] border border-slate-200 shadow-sm flex items-center gap-5 hover:shadow-md transition-shadow">
                   <div className={`p-4 rounded-2xl ${card.bg} ${card.color}`}>
@@ -333,23 +355,23 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               <div className="lg:col-span-8 bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-sm">
                 <div className="flex items-center justify-between mb-10">
-                  <h3 className="font-black text-slate-800 uppercase tracking-tight text-lg">Mức độ sẵn sàng theo Khoa/Viện</h3>
-                  <button className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-xl hover:bg-blue-100 transition-colors">Xem chi tiết</button>
+                  <h3 className="font-black text-slate-800 uppercase tracking-tight text-lg">M?c ?? s?n s�ng theo Khoa/Vi?n</h3>
+                  <button className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-xl hover:bg-blue-100 transition-colors">Xem chi ti?t</button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
                   {[
-                    { name: 'Công nghệ Thông tin', percent: 88, color: 'bg-blue-500', count: 450 },
-                    { name: 'Kinh tế - Quản trị', percent: 64, color: 'bg-amber-500', count: 320 },
-                    { name: 'Cơ khí - Kỹ thuật', percent: 42, color: 'bg-rose-500', count: 180 },
-                    { name: 'Ngôn ngữ & Văn hóa', percent: 76, color: 'bg-emerald-500', count: 210 },
-                    { name: 'Khoa học Ứng dụng', percent: 55, color: 'bg-indigo-500', count: 125 },
-                    { name: 'Du lịch - Nhà hàng', percent: 38, color: 'bg-orange-500', count: 90 },
+                    { name: 'C�ng ngh? Th�ng tin', percent: 88, color: 'bg-blue-500', count: 450 },
+                    { name: 'Kinh t? - Qu?n tr?', percent: 64, color: 'bg-amber-500', count: 320 },
+                    { name: 'C? kh� - K? thu?t', percent: 42, color: 'bg-rose-500', count: 180 },
+                    { name: 'Ng�n ng? & V?n h�a', percent: 76, color: 'bg-emerald-500', count: 210 },
+                    { name: 'Khoa h?c ?ng d?ng', percent: 55, color: 'bg-indigo-500', count: 125 },
+                    { name: 'Du l?ch - Nh� h�ng', percent: 38, color: 'bg-orange-500', count: 90 },
                   ].map((khoa, i) => (
                     <div key={i} className="space-y-3">
                       <div className="flex justify-between items-end">
                         <div className="space-y-0.5">
                           <p className="text-sm font-black text-slate-800 leading-tight">{khoa.name}</p>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase">{khoa.count} sinh viên</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase">{khoa.count} sinh vi�n</p>
                         </div>
                         <span className="text-sm font-black text-slate-900">{khoa.percent}%</span>
                       </div>
@@ -363,21 +385,21 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
 
               <div className="lg:col-span-4 bg-slate-900 p-10 rounded-[2.5rem] text-white shadow-2xl shadow-blue-900/10">
                 <h3 className="font-black text-lg uppercase tracking-tight mb-8 text-blue-400 flex items-center gap-2">
-                  <Sparkles size={20} /> Phân tích AI
+                  <Sparkles size={20} /> Ph�n t�ch AI
                 </h3>
                 <div className="space-y-6">
                   <div className="p-6 bg-slate-800/60 rounded-3xl border border-slate-700/50">
-                    <p className="text-xs font-black text-blue-400 uppercase mb-2 tracking-widest">Tiêu chí thiếu nhiều nhất</p>
-                    <p className="text-lg font-bold leading-tight">Hội nhập tốt</p>
-                    <p className="text-[11px] text-slate-400 mt-2 leading-relaxed italic">Chiếm 68% hồ sơ chưa đạt. Đề xuất tổ chức thêm đợt thi chứng chỉ kỹ năng số.</p>
+                    <p className="text-xs font-black text-blue-400 uppercase mb-2 tracking-widest">Ti�u ch� thi?u nhi?u nh?t</p>
+                    <p className="text-lg font-bold leading-tight">H?i nh?p t?t</p>
+                    <p className="text-[11px] text-slate-400 mt-2 leading-relaxed italic">Chi?m 68% h? s? ch?a ??t. ?? xu?t t? ch?c th�m ??t thi ch?ng ch? k? n?ng s?.</p>
                   </div>
                   <div className="p-6 bg-slate-800/60 rounded-3xl border border-slate-700/50">
-                    <p className="text-xs font-black text-amber-400 uppercase mb-2 tracking-widest">Hành động ưu tiên</p>
-                    <p className="text-lg font-bold leading-tight">Duyệt minh chứng</p>
-                    <p className="text-[11px] text-slate-400 mt-2 leading-relaxed italic">Còn {stats.pending} hồ sơ mới nộp trong 24h qua. Cần xử lý để ổn định tâm lý SV.</p>
+                    <p className="text-xs font-black text-amber-400 uppercase mb-2 tracking-widest">H�nh ??ng ?u ti�n</p>
+                    <p className="text-lg font-bold leading-tight">Duy?t minh ch?ng</p>
+                    <p className="text-[11px] text-slate-400 mt-2 leading-relaxed italic">C�n {stats.pending} h? s? m?i n?p trong 24h qua. C?n x? l� ?? ?n ??nh t�m l� SV.</p>
                   </div>
                   <button className="w-full py-4 border border-slate-700 rounded-2xl text-xs font-bold text-slate-400 hover:text-white hover:border-slate-500 transition-all flex items-center justify-center gap-2">
-                    XUẤT BÁO CÁO PHÂN TÍCH <ArrowRight size={14} />
+                    XU?T B�O C�O PH�N T�CH <ArrowRight size={14} />
                   </button>
                 </div>
               </div>
@@ -389,14 +411,14 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
           <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-300">
             <header className="flex flex-col lg:flex-row justify-between lg:items-center gap-6">
               <div>
-                <h2 className="text-3xl font-black text-slate-800 tracking-tight uppercase">Duyệt hồ sơ minh chứng</h2>
-                <p className="text-slate-500 font-medium">Hàng đợi xét duyệt các thành tích sinh viên đã cập nhật.</p>
+                <h2 className="text-3xl font-black text-slate-800 tracking-tight uppercase">Duy?t h? s? minh ch?ng</h2>
+                <p className="text-slate-500 font-medium">H�ng ??i x�t duy?t c�c th�nh t�ch sinh vi�n ?� c?p nh?t.</p>
               </div>
               <div className="flex gap-4">
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                   <input
-                    placeholder="Tìm MSSV, tên thành tích..."
+                    placeholder="T�m MSSV, t�n th�nh t�ch..."
                     className="pl-12 pr-6 py-4 rounded-2xl bg-white border border-slate-200 outline-none text-sm w-full sm:w-80 focus:ring-4 focus:ring-blue-100 transition-all font-medium"
                     onChange={e => setSearchTerm(e.target.value)}
                   />
@@ -411,11 +433,11 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/50 border-b border-slate-100">
-                    <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Thông tin SV</th>
-                    <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Tiêu chí liên quan</th>
-                    <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Mô tả thành tích</th>
-                    <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Trạng thái</th>
-                    <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Thao tác</th>
+                    <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Th�ng tin SV</th>
+                    <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Ti�u ch� li�n quan</th>
+                    <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">M� t? th�nh t�ch</th>
+                    <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Tr?ng th�i</th>
+                    <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Thao t�c</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -423,7 +445,7 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                     <tr>
                       <td colSpan={5} className="px-8 py-32 text-center text-slate-400 italic">
                         <FileCheck size={64} className="mx-auto text-slate-100 mb-6 opacity-40" />
-                        <p className="text-sm font-medium">Hiện không có hồ sơ nào trong hàng đợi.</p>
+                        <p className="text-sm font-medium">Hi?n kh�ng c� h? s? n�o trong h�ng ??i.</p>
                       </td>
                     </tr>
                   ) : (
@@ -431,7 +453,7 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                       <tr key={s.id} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="px-8 py-7">
                           <p className="font-black text-slate-800 text-sm">#{s.userId.toUpperCase().slice(0, 8)}</p>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-tight">Nộp: {s.submittedAt}</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-tight">N?p: {s.submittedAt}</p>
                         </td>
                         <td className="px-8 py-7">
                           <div className="flex flex-wrap gap-1 max-w-[220px]">
@@ -445,7 +467,7 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                         <td className="px-8 py-7">
                           <p className="font-bold text-slate-800 text-sm mb-1 leading-snug">{s.description}</p>
                           <button className="text-blue-500 hover:text-blue-700 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 mt-2">
-                            <Eye size={12} /> Xem {s.files.length} tệp minh chứng
+                            <Eye size={12} /> Xem {s.files.length} t?p minh ch?ng
                           </button>
                         </td>
                         <td className="px-8 py-7">
@@ -453,10 +475,10 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                             <span className={`text-[9px] w-fit font-black px-3 py-1.5 rounded-full uppercase tracking-widest border ${s.status === EvidenceStatus.APPROVED ? 'bg-green-50 text-green-600 border-green-100' :
                               s.status === EvidenceStatus.REJECTED ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-amber-50 text-amber-600 border-amber-100'
                               }`}>
-                              {s.status === EvidenceStatus.PENDING ? 'Chờ duyệt' : (s.status === EvidenceStatus.APPROVED ? 'Hợp lệ' : 'Từ chối')}
+                              {s.status === EvidenceStatus.PENDING ? 'Ch? duy?t' : (s.status === EvidenceStatus.APPROVED ? 'H?p l?' : 'T? ch?i')}
                             </span>
                             {s.status === EvidenceStatus.REJECTED && s.adminComment && (
-                              <p className="text-[10px] text-rose-500 italic max-w-[150px] leading-tight">Lý do: {s.adminComment}</p>
+                              <p className="text-[10px] text-rose-500 italic max-w-[150px] leading-tight">L� do: {s.adminComment}</p>
                             )}
                           </div>
                         </td>
@@ -466,7 +488,7 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                               onClick={() => handleAction(s.id, EvidenceStatus.APPROVED)}
                               disabled={s.status === EvidenceStatus.APPROVED}
                               className="p-3 text-green-600 bg-green-50/50 hover:bg-green-100 rounded-2xl transition-all disabled:opacity-20 border border-green-100/30"
-                              title="Xác nhận Hợp lệ"
+                              title="X�c nh?n H?p l?"
                             >
                               <CheckCircle size={22} />
                             </button>
@@ -474,7 +496,7 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                               onClick={() => handleAction(s.id, EvidenceStatus.REJECTED)}
                               disabled={s.status === EvidenceStatus.REJECTED}
                               className="p-3 text-rose-600 bg-rose-50/50 hover:bg-rose-100 rounded-2xl transition-all disabled:opacity-20 border border-rose-100/30"
-                              title="Yêu cầu Bổ sung/Từ chối"
+                              title="Y�u c?u B? sung/T? ch?i"
                             >
                               <XCircle size={22} />
                             </button>
@@ -493,39 +515,39 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
           <div className="space-y-10 animate-in slide-in-from-bottom-2 duration-300">
             <header className="flex justify-between items-center">
               <div>
-                <h2 className="text-3xl font-black text-slate-800 tracking-tight uppercase">Quản lý Hoạt động & Sự kiện</h2>
-                <p className="text-slate-500 font-medium">Đăng tải các sự kiện giúp sinh viên hoàn thiện tiêu chí SV5T.</p>
+                <h2 className="text-3xl font-black text-slate-800 tracking-tight uppercase">Qu?n l� Ho?t ??ng & S? ki?n</h2>
+                <p className="text-slate-500 font-medium">??ng t?i c�c s? ki?n gi�p sinh vi�n ho�n thi?n ti�u ch� SV5T.</p>
               </div>
               <button
                 onClick={() => {
                   setShowEventForm(!showEventForm);
                   setEditingEventId(null);
-                  setEventForm({ title: '', date: '', description: '', categories: [], location: '' });
+                  setEventForm({ title: '', date: '', description: '', categories: [], location: '', link: '' });
                 }}
                 className="bg-slate-900 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase tracking-widest shadow-xl shadow-slate-200 hover:bg-black transition-all flex items-center gap-3"
               >
-                <CalendarPlus size={20} /> {showEventForm ? 'Đóng' : 'Tạo sự kiện mới'}
+                <CalendarPlus size={20} /> {showEventForm ? '?�ng' : 'T?o s? ki?n m?i'}
               </button>
             </header>
 
             {showEventForm && (
               <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
-                <h3 className="text-xl font-bold text-slate-800">{editingEventId ? 'Chỉnh sửa' : 'Tạo mới'} sự kiện</h3>
+                <h3 className="text-xl font-bold text-slate-800">{editingEventId ? 'Ch?nh s?a' : 'T?o m?i'} s? ki?n</h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Tên sự kiện</label>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">T�n s? ki?n</label>
                     <input
                       type="text"
                       value={eventForm.title}
                       onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
-                      placeholder="Vd: Hội thảo Kỹ năng số..."
+                      placeholder="Vd: H?i th?o K? n?ng s?..."
                       className="w-full px-4 py-3 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-100 transition-all"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Ngày tổ chức</label>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Ng�y t? ch?c</label>
                     <input
                       type="date"
                       value={eventForm.date}
@@ -535,30 +557,30 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Địa điểm</label>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">??a ?i?m</label>
                     <input
                       type="text"
                       value={eventForm.location}
                       onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })}
-                      placeholder="Vd: Hội trường A, Phòng B.201..."
+                      placeholder="Vd: H?i tr??ng A, Ph�ng B.201..."
                       className="w-full px-4 py-3 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-100 transition-all"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Link đăng ký (Tùy chọn)</label>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Link ??ng k� (T�y ch?n)</label>
                     <input
                       type="text"
                       value={eventForm.link}
                       onChange={(e) => setEventForm({ ...eventForm, link: e.target.value })}
-                      placeholder="Vd: https://forms.gle/... hoặc https://dksk.hust.edu.vn/..."
+                      placeholder="Vd: https://forms.gle/..."
                       className="w-full px-4 py-3 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-100 transition-all"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Tiêu chí hỗ trợ</label>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Ti�u ch� h? tr?</label>
                   <div className="flex flex-wrap gap-2">
                     {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
                       <button
@@ -576,11 +598,11 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Mô tả sự kiện</label>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">M� t? s? ki?n</label>
                   <textarea
                     value={eventForm.description}
                     onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
-                    placeholder="Mô tả chi tiết về sự kiện..."
+                    placeholder="M� t? chi ti?t v? s? ki?n..."
                     rows={4}
                     className="w-full px-4 py-3 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-100 transition-all resize-none"
                   />
@@ -591,7 +613,7 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                     onClick={handleAddEvent}
                     className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-blue-700 transition-colors"
                   >
-                    {editingEventId ? 'Cập nhật' : 'Tạo'} sự kiện
+                    {editingEventId ? 'C?p nh?t' : 'T?o'} s? ki?n
                   </button>
                   <button
                     onClick={() => {
@@ -601,7 +623,7 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                     }}
                     className="flex-1 bg-slate-100 text-slate-700 px-6 py-3 rounded-2xl font-bold hover:bg-slate-200 transition-colors"
                   >
-                    Hủy
+                    H?y
                   </button>
                 </div>
               </div>
@@ -637,7 +659,7 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                   <p className="text-sm text-slate-500 line-clamp-2 leading-relaxed mb-6 italic">"{event.description}"</p>
                   <div className="flex items-center justify-between pt-6 border-t border-slate-100">
                     <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                      <span className="text-blue-500">📍</span> {event.location}
+                      <span className="text-blue-500">??</span> {event.location}
                     </div>
                     <div className="text-[10px] font-black text-slate-800 uppercase tracking-widest bg-slate-50 px-2 py-1 rounded-lg">
                       {event.date}
@@ -650,7 +672,7 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                       rel="noopener noreferrer"
                       className="w-full mt-4 py-3 bg-blue-50 text-blue-600 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-blue-100 transition-colors text-center border border-blue-100 flex items-center justify-center gap-2"
                     >
-                      🔗 Đăng ký tham dự
+                      ?? ??ng k� tham d?
                     </a>
                   )}
                 </div>
@@ -662,8 +684,17 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
         {tab === 'students' && (
           <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-300">
             <header className="flex flex-col lg:flex-row justify-between lg:items-center gap-6">
-              <h2 className="text-3xl font-black text-slate-800 tracking-tight uppercase">Danh sách Hồ sơ Sinh viên</h2>
+              <h2 className="text-3xl font-black text-slate-800 tracking-tight uppercase">Danh s�ch H? s? Sinh vi�n</h2>
               <div className="flex gap-3">
+                <button
+                  onClick={fetchStudents}
+                  className="px-6 py-3 bg-green-500 text-white rounded-2xl font-bold text-sm hover:bg-green-600 transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  L�m m?i
+                </button>
                 <select
                   value={studentFilters.faculty}
                   onChange={(e) => {
@@ -672,11 +703,11 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                   }}
                   className="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-slate-600 font-bold text-sm outline-none focus:ring-4 focus:ring-blue-100"
                 >
-                  <option value="">Tất cả khoa</option>
-                  <option value="Công nghệ Thông tin">Công nghệ Thông tin</option>
-                  <option value="Kinh tế - Quản trị">Kinh tế - Quản trị</option>
-                  <option value="Cơ khí - Kỹ thuật">Cơ khí - Kỹ thuật</option>
-                  <option value="Ngôn ngữ & Văn hóa">Ngôn ngữ & Văn hóa</option>
+                  <option value="">T?t c? khoa</option>
+                  <option value="C�ng ngh? Th�ng tin">C�ng ngh? Th�ng tin</option>
+                  <option value="Kinh t? - Qu?n tr?">Kinh t? - Qu?n tr?</option>
+                  <option value="C? kh� - K? thu?t">C? kh� - K? thu?t</option>
+                  <option value="Ng�n ng? & V?n h�a">Ng�n ng? & V?n h�a</option>
                 </select>
                 <select
                   value={studentFilters.status}
@@ -686,91 +717,97 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                   }}
                   className="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-slate-600 font-bold text-sm outline-none focus:ring-4 focus:ring-blue-100"
                 >
-                  <option value="">Tất cả trạng thái</option>
-                  <option value="Đủ điều kiện">Đủ điều kiện</option>
-                  <option value="Gần đủ">Gần đủ</option>
-                  <option value="Chưa đủ">Chưa đủ</option>
+                  <option value="">T?t c? tr?ng th�i</option>
+                  <option value="?? ?i?u ki?n">?? ?i?u ki?n</option>
+                  <option value="G?n ??">G?n ??</option>
+                  <option value="Ch?a ??">Ch?a ??</option>
                 </select>
               </div>
             </header>
 
-            <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/50 border-b border-slate-100">
-                    <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">MSSV & Tên</th>
-                    <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Khoa</th>
-                    <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">GPA</th>
-                    <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Tiến độ</th>
-                    <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Trạng thái</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {paginatedStudents.map((student) => (
-                    <tr key={student.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-8 py-6">
-                        <p className="font-bold text-slate-800 text-sm">{student.name}</p>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">MSSV: {student.mssv}</p>
-                      </td>
-                      <td className="px-8 py-6">
-                        <p className="text-sm font-bold text-slate-700">{student.faculty}</p>
-                      </td>
-                      <td className="px-8 py-6">
-                        <p className="text-sm font-black text-slate-800">{student.gpa}</p>
-                      </td>
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-2">
-                          <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-blue-500 rounded-full transition-all"
-                              style={{ width: `${student.completionPercent}%` }}
-                            />
-                          </div>
-                          <span className="text-[10px] font-bold text-slate-600">{student.completionPercent}%</span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <span className={`text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest border ${student.status === 'Đủ điều kiện' ? 'bg-green-50 text-green-600 border-green-100' :
-                          student.status === 'Gần đủ' ? 'bg-amber-50 text-amber-600 border-amber-100' :
-                            'bg-rose-50 text-rose-600 border-rose-100'
-                          }`}>
-                          {student.status}
-                        </span>
-                      </td>
+            {loadingStudents ? (
+              <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-12 text-center">
+                <div className="animate-spin w-8 h-8 border-4 border-blue-200 border-t-blue-500 rounded-full mx-auto mb-4"></div>
+                <p className="text-slate-600">?ang t?i d? li?u sinh vi�n...</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/50 border-b border-slate-100">
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">MSSV & T�n</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Khoa</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">GPA</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Ti?n ??</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Tr?ng th�i</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {paginatedStudents.map((student) => (
+                      <tr key={student.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-8 py-6">
+                          <p className="font-bold text-slate-800 text-sm">{student.name}</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">MSSV: {student.mssv}</p>
+                        </td>
+                        <td className="px-8 py-6">
+                          <p className="text-sm font-bold text-slate-700">{student.faculty}</p>
+                        </td>
+                        <td className="px-8 py-6">
+                          <p className="text-sm font-black text-slate-800">{student.gpa}</p>
+                        </td>
+                        <td className="px-8 py-6">
+                          <div className="flex items-center gap-2">
+                            <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-blue-500 rounded-full transition-all"
+                                style={{ width: `${student.completionPercent}%` }}
+                              />
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-600">{student.completionPercent}%</span>
+                          </div>
+                        </td>
+                        <td className="px-8 py-6">
+                          <span className={`text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest border ${student.status === '?? ?i?u ki?n' ? 'bg-green-50 text-green-600 border-green-100' :
+                            student.status === 'G?n ??' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                              'bg-rose-50 text-rose-600 border-rose-100'
+                            }`}>
+                            {student.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
 
-            {totalPages > 1 && (
-              <div className="flex justify-center items-center gap-2 mt-6">
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                  className="px-4 py-2 border border-slate-200 rounded-lg text-slate-600 font-bold hover:bg-slate-50 disabled:opacity-50"
-                >
-                  Trước
-                </button>
-                {Array.from({ length: totalPages }, (_, i) => (
-                  <button
-                    key={i + 1}
-                    onClick={() => setCurrentPage(i + 1)}
-                    className={`px-3 py-2 rounded-lg font-bold transition-all ${currentPage === i + 1
-                      ? 'bg-blue-600 text-white'
-                      : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
-                      }`}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                  className="px-4 py-2 border border-slate-200 rounded-lg text-slate-600 font-bold hover:bg-slate-50 disabled:opacity-50"
-                >
-                  Sau
-                </button>
+                {filteredStudents.length === 0 && (
+                  <div className="p-12 text-center">
+                    <p className="text-slate-500">Kh�ng t�m th?y sinh vi�n n�o</p>
+                  </div>
+                )}
+
+                {totalPages > 1 && (
+                  <div className="px-8 py-6 border-t border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
+                      Hi?n th? {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredStudents.length)} c?a {filteredStudents.length} sinh vi�n
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                        disabled={currentPage === 1}
+                        className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold text-sm hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Tr??c
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold text-sm hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Ti?p
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -780,8 +817,8 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
           <div className="space-y-10 animate-in slide-in-from-bottom-2 duration-300">
             <header className="flex justify-between items-center">
               <div>
-                <h2 className="text-3xl font-black text-slate-800 tracking-tight uppercase">Quản lý Học bổng SV5T</h2>
-                <p className="text-slate-500 font-medium">Đăng tải các thông tin học bổng dành cho Sinh viên 5 Tốt.</p>
+                <h2 className="text-3xl font-black text-slate-800 tracking-tight uppercase">Qu?n l� H?c b?ng SV5T</h2>
+                <p className="text-slate-500 font-medium">??ng t?i c�c th�ng tin h?c b?ng d�nh cho Sinh vi�n 5 T?t.</p>
               </div>
               <button
                 onClick={() => {
@@ -790,28 +827,28 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                 }}
                 className="bg-slate-900 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase tracking-widest shadow-xl shadow-slate-200 hover:bg-black transition-all flex items-center gap-3"
               >
-                <GraduationCap size={20} /> {showScholarshipForm ? 'Đóng' : 'Thêm học bổng mới'}
+                <GraduationCap size={20} /> {showScholarshipForm ? '?�ng' : 'Th�m h?c b?ng m?i'}
               </button>
             </header>
 
             {showScholarshipForm && (
               <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
-                <h3 className="text-xl font-bold text-slate-800">Thông tin học bổng</h3>
+                <h3 className="text-xl font-bold text-slate-800">Th�ng tin h?c b?ng</h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Tên học bổng</label>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">T�n h?c b?ng</label>
                     <input
                       type="text"
                       value={scholarshipForm.name}
                       onChange={(e) => setScholarshipForm({ ...scholarshipForm, name: e.target.value })}
-                      placeholder="Vd: Học bổng Odon Vallet 2025..."
+                      placeholder="Vd: H?c b?ng Odon Vallet 2025..."
                       className="w-full px-4 py-3 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-100 transition-all font-bold text-slate-800"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Ngày hết hạn (Hệ thống sẽ tự xóa khi quá hạn)</label>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Ng�y h?t h?n (H? th?ng s? t? x�a khi qu� h?n)</label>
                     <input
                       type="date"
                       value={scholarshipForm.expiryDate}
@@ -822,11 +859,11 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Nội dung chi tiết</label>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">N?i dung chi ti?t</label>
                   <textarea
                     value={scholarshipForm.content}
                     onChange={(e) => setScholarshipForm({ ...scholarshipForm, content: e.target.value })}
-                    placeholder="Mô tả chi tiết về điều kiện, giá trị, và cách thức nộp hồ sơ..."
+                    placeholder="M� t? chi ti?t v? ?i?u ki?n, gi� tr?, v� c�ch th?c n?p h? s?..."
                     rows={6}
                     className="w-full px-4 py-3 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-100 transition-all resize-none font-medium"
                   />
@@ -836,7 +873,7 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                   <button
                     onClick={() => {
                       if (!scholarshipForm.name || !scholarshipForm.expiryDate || !scholarshipForm.content) {
-                        alert('Vui lòng điền đầy đủ thông tin học bổng');
+                        alert('Vui l�ng ?i?n ??y ?? th�ng tin h?c b?ng');
                         return;
                       }
                       const newScholarship: Scholarship = {
@@ -849,11 +886,11 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                       setScholarships([...scholarships, newScholarship]);
                       setShowScholarshipForm(false);
                       setScholarshipForm({ name: '', content: '', expiryDate: '' });
-                      alert('Đã thêm học bổng thành công!');
+                      alert('?� th�m h?c b?ng th�nh c�ng!');
                     }}
                     className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
                   >
-                    Đăng thông báo
+                    ??ng th�ng b�o
                   </button>
                   <button
                     onClick={() => {
@@ -862,7 +899,7 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                     }}
                     className="flex-1 bg-slate-100 text-slate-700 px-6 py-3 rounded-2xl font-bold hover:bg-slate-200 transition-colors"
                   >
-                    Hủy
+                    H?y
                   </button>
                 </div>
               </div>
@@ -872,23 +909,23 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
               {scholarships.length === 0 ? (
                 <div className="col-span-full text-center py-20 bg-slate-50/50 rounded-[2.5rem] border border-dashed border-slate-200">
                   <GraduationCap size={48} className="mx-auto text-slate-200 mb-4" />
-                  <p className="text-slate-400 font-bold">Chưa có thông báo học bổng nào.</p>
+                  <p className="text-slate-400 font-bold">Ch?a c� th�ng b�o h?c b?ng n�o.</p>
                 </div>
               ) : (
                 scholarships.map(s => (
                   <div key={s.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm group hover:border-blue-200 hover:shadow-md transition-all relative flex flex-col">
                     <div className="flex justify-between items-start mb-4">
                       <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-blue-100">
-                        Học bổng SV5T
+                        H?c b?ng SV5T
                       </span>
                       <button
                         onClick={() => {
-                          if (window.confirm('Bạn có chắc muốn xóa học bổng này?')) {
+                          if (window.confirm('B?n c� ch?c mu?n x�a h?c b?ng n�y?')) {
                             setScholarships(scholarships.filter(item => item.id !== s.id));
                           }
                         }}
                         className="p-2 text-slate-300 hover:text-rose-500 transition-colors bg-slate-50 rounded-xl hover:bg-rose-50"
-                        title="Xóa học bổng"
+                        title="X�a h?c b?ng"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -898,13 +935,13 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
 
                     <div className="flex items-center gap-2 mb-4 text-xs font-bold text-slate-500">
                       <Clock size={14} className="text-amber-500" />
-                      <span>Hết hạn: {new Date(s.expiryDate).toLocaleDateString('vi-VN')}</span>
+                      <span>H?t h?n: {new Date(s.expiryDate).toLocaleDateString('vi-VN')}</span>
                     </div>
 
                     <p className="text-sm text-slate-600 leading-relaxed mb-6 flex-1 whitespace-pre-wrap">{s.content}</p>
 
                     <div className="pt-4 border-t border-slate-100 mt-auto">
-                      <p className="text-[10px] text-slate-400 italic text-right">Đăng ngày: {new Date(s.createdAt).toLocaleDateString('vi-VN')}</p>
+                      <p className="text-[10px] text-slate-400 italic text-right">??ng ng�y: {new Date(s.createdAt).toLocaleDateString('vi-VN')}</p>
                     </div>
                   </div>
                 ))
@@ -916,14 +953,14 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
         {tab === 'settings' && (
           <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-300">
             <header>
-              <h2 className="text-3xl font-black text-slate-800 tracking-tight uppercase">Cài đặt Tài khoản</h2>
-              <p className="text-slate-500 font-medium">Quản lý thông tin và bảo mật tài khoản admin.</p>
+              <h2 className="text-3xl font-black text-slate-800 tracking-tight uppercase">C�i ??t T�i kho?n</h2>
+              <p className="text-slate-500 font-medium">Qu?n l� th�ng tin v� b?o m?t t�i kho?n admin.</p>
             </header>
             <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-              <h3 className="text-xl font-bold text-slate-800 mb-6">Đổi mật khẩu</h3>
+              <h3 className="text-xl font-bold text-slate-800 mb-6">??i m?t kh?u</h3>
               <div className="space-y-4 max-w-md">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu hiện tại</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">M?t kh?u hi?n t?i</label>
                   <input
                     type="password"
                     value={currentPassword}
@@ -932,7 +969,7 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu mới</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">M?t kh?u m?i</label>
                   <input
                     type="password"
                     value={newPassword}
@@ -941,7 +978,7 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Xác nhận mật khẩu mới</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">X�c nh?n m?t kh?u m?i</label>
                   <input
                     type="password"
                     value={confirmPassword}
@@ -954,7 +991,7 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                   onClick={handleChangePassword}
                   className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors"
                 >
-                  Cập nhật mật khẩu
+                  C?p nh?t m?t kh?u
                 </button>
               </div>
             </div>

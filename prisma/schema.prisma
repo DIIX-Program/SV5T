@@ -1,0 +1,222 @@
+// ============================================
+// SV5T Readiness Evaluator - Prisma Schema
+// Database: PostgreSQL (Neon / Supabase)
+// ORM: Prisma (serverless-optimized)
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// 1. USER MODEL (Xác thực & Phân quyền)
+// ============================================
+model User {
+  id            String    @id @default(cuid())
+  mssv          String    @unique @db.VarChar(10) // Exactly 10 digits
+  passwordHash  String    @db.VarChar(255)
+  role          UserRole  @default(STUDENT)
+  email         String?   @unique @db.VarChar(255)
+  isActive      Boolean   @default(true)
+  lastLogin     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  studentProfile    StudentProfile?
+  auditLogs         AuditLog[]
+
+  @@index([mssv])
+  @@index([role])
+  @@index([isActive])
+}
+
+enum UserRole {
+  STUDENT
+  ADMIN
+}
+
+// ============================================
+// 2. STUDENT_PROFILE MODEL (Hồ sơ sinh viên)
+// ============================================
+model StudentProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique // Foreign key to User
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  fullName        String   @db.VarChar(255)
+  className       String   @db.VarChar(50)
+  faculty         String   @db.VarChar(100) // Index for filtering
+  studentType     StudentType
+  academicYear    Int
+  gpa             Decimal  @db.Decimal(3, 2)
+  trainingPoints  Int      @default(0)
+  phone           String?  @db.VarChar(20)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  evidenceSubmissions EvidenceSubmission[]
+  evaluationResult    EvaluationResult?
+  recommendation      Recommendation?
+
+  @@index([faculty])
+  @@index([studentType])
+}
+
+enum StudentType {
+  UNIVERSITY
+  COLLEGE
+}
+
+// ============================================
+// 3. EVIDENCE_SUBMISSION MODEL (Minh chứng)
+// ============================================
+model EvidenceSubmission {
+  id              String    @id @default(cuid())
+  studentId       String    // Foreign key to StudentProfile
+  student         StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  category        String    @db.VarChar(50) // ethics, study, physical, volunteer, integration
+  title           String    @db.VarChar(255)
+  description     String?   @db.Text
+  fileUrl         String?   @db.VarChar(500) // S3/Supabase Storage URL
+  fileName        String?   @db.VarChar(255)
+  achievementDate DateTime  @db.Date
+  
+  status          EvidenceStatus @default(PENDING)
+  adminNotes      String?   @db.Text
+  submittedAt     DateTime  @default(now())
+  approvedAt      DateTime?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([studentId, category, status])
+  @@index([achievementDate])
+  @@index([status])
+}
+
+enum EvidenceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ============================================
+// 4. EVALUATION_RESULT MODEL (Kết quả đánh giá)
+// ============================================
+model EvaluationResult {
+  id                  String   @id @default(cuid())
+  studentId           String   @unique // 1-to-1 relationship
+  student             StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  overallStatus       EvaluationStatus
+  readinessScore      Decimal  @db.Decimal(5, 2) // 0-100
+  
+  // JSONB: {ethics: {isHardPassed, isAlmostPassed, softBonus, tips}, ...}
+  categoryResults     Json     @default("{}")
+  
+  lastEvaluatedAt     DateTime
+  evaluationVersion   Int      @default(1)
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([overallStatus])
+}
+
+enum EvaluationStatus {
+  ELIGIBLE
+  ALMOST_READY
+  NOT_ELIGIBLE
+}
+
+// ============================================
+// 5. RECOMMENDATION MODEL (Khuyến nghị)
+// ============================================
+model Recommendation {
+  id              String   @id @default(cuid())
+  studentId       String   @unique // 1-to-1 relationship
+  student         StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  // JSONB: {overallInsight, items: [{category, priority, title, actions, estimatedTimeline}], nextSteps}
+  recommendations Json     @default("{}")
+  
+  generatedAt     DateTime @default(now())
+  validUntil      DateTime // Cache expiration
+  isStale         Boolean  @default(false) // Mark for regeneration
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([studentId])
+}
+
+// ============================================
+// 6. EVENT MODEL (Sự kiện)
+// ============================================
+model Event {
+  id              String   @id @default(cuid())
+  title           String   @db.VarChar(255)
+  description     String?  @db.Text
+  date            DateTime @db.Date
+  year            Int      // For easy filtering
+  month           Int      // 1-12, for month-based queries
+  
+  categories      String[] @default([]) // [ethics, study, volunteer, integration, physical]
+  location        String?  @db.VarChar(255)
+  capacity        Int?
+  registeredCount Int      @default(0)
+  status          EventStatus @default(UPCOMING)
+  link            String?  @db.VarChar(500)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([year, month])
+  @@index([status, date])
+}
+
+enum EventStatus {
+  UPCOMING
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+// ============================================
+// 7. AUDIT_LOG MODEL (Ghi chép)
+// ============================================
+model AuditLog {
+  id              String   @id @default(cuid())
+  userId          String?  // Foreign key to User (nullable for anonymous actions)
+  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  action          String   @db.VarChar(50) // LOGIN, SUBMIT_EVIDENCE, APPROVE, etc
+  resourceType    String   @db.VarChar(50) // STUDENT, EVIDENCE, EVALUATION, etc
+  resourceId      String?  @db.VarChar(36) // UUID of affected resource
+  details         Json?    @default("{}")
+  ipAddress       String?  @db.VarChar(45) // IPv4 or IPv6
+  
+  createdAt       DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([action, createdAt(sort: Desc)])
+}
+
+// ============================================
+// NOTES:
+// - All critical queries have proper indexes
+// - Foreign keys use CASCADE delete (except AuditLog)
+// - JSONB for flexible data (recommendations, category results)
+// - Timestamps for auditing (createdAt, updatedAt)
+// - Serverless-optimized: stateless queries, no long transactions
+// - No self-joins, no complex traversals
+// ============================================

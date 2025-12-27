@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: sv5t-backend
+    env: node
+    buildCommand: npm install
+    startCommand: node server/server.js
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: ADMIN_SECRET
+        sync: false

@@ -16,11 +16,11 @@ import CriteriaForm from '../components/CriteriaForm';
 import ResultDashboard from '../components/ResultDashboard';
 import EvidenceUploader from '../components/EvidenceUploader';
 import { CATEGORY_LABELS } from '../constants';
-import { Sparkles, ArrowRight, Calendar, ExternalLink, UserPlus, Info, Save, ChevronRight, GraduationCap, Clock } from 'lucide-react';
+import { Sparkles, ArrowRight, Calendar, ExternalLink, UserPlus, Info, Save, ChevronRight, GraduationCap, Clock, AlertCircle } from 'lucide-react';
 
 interface Props {
   authUser: AuthUser | null;
-  onLogin: (type: 'google' | 'phone' | 'guest') => void;
+  onRequireLogin: () => void;
   profile: UserProfile | null;
   setProfile: (p: UserProfile) => void;
   criteria: CriteriaData;
@@ -29,20 +29,23 @@ interface Props {
   setSubmissions: (s: EvidenceSubmission[]) => void;
   evaluationResult: EvaluationResult;
   events: UniversityEvent[];
-  confessions: Confession[];
-  setConfessions: (c: Confession[]) => void;
+  confessions?: Confession[];
+  setConfessions?: (c: Confession[]) => void;
   scholarships?: Scholarship[];
 }
 
 const StudentView: React.FC<Props> = ({
-  authUser, onLogin, profile, setProfile, criteria, setCriteria, submissions, setSubmissions, evaluationResult, events, confessions, setConfessions, scholarships
+  authUser, onRequireLogin, profile, setProfile, criteria, setCriteria, submissions, setSubmissions, evaluationResult, events, confessions, setConfessions, scholarships
 }) => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'confession'>('dashboard');
   const [tempProfile, setTempProfile] = useState<Partial<UserProfile>>({
     studentType: StudentType.UNIVERSITY
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const handleAddConfession = (newConfession: Omit<Confession, 'id' | 'createdAt' | 'likes' | 'comments'>) => {
+    if (!confessions || !setConfessions) return;
     const confession: Confession = {
       ...newConfession,
       id: Math.random().toString(36).substr(2, 9),
@@ -53,32 +56,22 @@ const StudentView: React.FC<Props> = ({
     setConfessions([confession, ...confessions]);
   };
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
     const fullName = (tempProfile.fullName || '').trim();
     if (!fullName) {
-      newErrors.fullName = 'Họ tên không được để trống';
-    }
-
-    const mssv = (tempProfile.mssv || '').trim();
-    // Cỏ thể add regex kiểm tra định dạng MSSV tùy chỉnh theo mỗi trường
-    if (!mssv) {
-      newErrors.mssv = 'Mã số sinh viên không được để trống';
-    } else if (!/^\d{10}$/.test(mssv)) {
-      newErrors.mssv = 'MSSV phải là 10 chữ số. Ví dụ: 1923050001';
+      newErrors.fullName = 'H? t�n kh�ng ???c ?? tr?ng';
     }
 
     const className = (tempProfile.className || '').trim();
     if (!className) {
-      newErrors.className = 'Lớp không được để trống';
+      newErrors.className = 'L?p kh�ng ???c ?? tr?ng';
     }
 
     const faculty = (tempProfile.faculty || '').trim();
     if (!faculty) {
-      newErrors.faculty = 'Khoa đào tạo không được để trống';
+      newErrors.faculty = 'Khoa ?�o t?o kh�ng ???c ?? tr?ng';
     }
 
     setErrors(newErrors);
@@ -87,22 +80,44 @@ const StudentView: React.FC<Props> = ({
 
   const handleContinue = () => {
     if (validateForm()) {
-      // Auto-switch to guest mode if user hasn't chosen a login option
-      if (!authUser) {
-        onLogin('guest'); // guest mode
-      }
-      // Nếu hợp lệ, trim tất cả dữ liệu trước khi lưu
       const trimmedProfile: Partial<UserProfile> = {
         ...tempProfile,
         fullName: (tempProfile.fullName || '').trim(),
-        mssv: (tempProfile.mssv || '').trim(),
         className: (tempProfile.className || '').trim(),
         faculty: (tempProfile.faculty || '').trim(),
       };
-      setProfile({ ...trimmedProfile, userId: authUser?.id || 'guest' } as UserProfile);
+      setProfile({ 
+        ...trimmedProfile, 
+        userId: authUser?.id || 'guest',
+        mssv: authUser?.mssv || ''
+      } as UserProfile);
     }
   };
 
+  // If user is not authenticated, show message to login
+  if (!authUser) {
+    return (
+      <div className="max-w-2xl mx-auto mt-20 px-6">
+        <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-3xl border-2 border-blue-200 p-12 text-center space-y-6">
+          <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
+            <AlertCircle className="text-blue-600" size={40} />
+          </div>
+          <div>
+            <h2 className="text-3xl font-black text-slate-800">C?n ??ng Nh?p</h2>
+            <p className="text-slate-600 mt-2">?? truy c?p c�c t�nh n?ng ?�nh gi� Sinh vi�n 5 T?t, vui l�ng ??ng nh?p ho?c ??ng k� t�i kho?n.</p>
+          </div>
+          <button
+            onClick={onRequireLogin}
+            className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold rounded-xl text-lg shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+          >
+            <ArrowRight size={20} /> ??ng Nh?p Ngay
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // If profile is not set, show profile form
   if (!profile) {
     return (
       <div className="max-w-xl mx-auto mt-20 px-6 animate-in slide-in-from-bottom-4 duration-500">
@@ -111,48 +126,32 @@ const StudentView: React.FC<Props> = ({
             <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
               <UserPlus className="text-blue-600" size={40} />
             </div>
-            <h2 className="text-3xl font-black text-slate-800">Thông tin cá nhân</h2>
-            <p className="text-slate-500 mt-2">Cần thiết để phân loại và định hướng tiêu chuẩn SV5T chính xác cho bạn.</p>
+            <h2 className="text-3xl font-black text-slate-800">Ho�n T?t H? S?</h2>
+            <p className="text-slate-500 mt-2">C?n thi?t ?? x�c ??nh ti�u chu?n SV5T ph� h?p cho b?n.</p>
           </div>
 
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4">
               <div>
                 <input
-                  placeholder="Họ và tên"
+                  placeholder="H? v� t�n"
                   className={`w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-4 transition-all border-2 ${errors.fullName
                     ? 'border-red-400 focus:ring-red-100 focus:border-red-400'
                     : 'border-slate-200 focus:ring-blue-100'
                     }`}
                   onChange={e => {
-                    setTempProfile({ ...tempProfile, fullName: e.target.value }); // dùng fullName, có thể điều chỉnh dữ liệu sau
+                    setTempProfile({ ...tempProfile, fullName: e.target.value });
                     if (errors.fullName) setErrors({ ...errors, fullName: '' });
                   }}
                 />
                 {errors.fullName && (
-                  <p className="text-red-500 text-sm mt-1.5 font-medium">⚠️ {errors.fullName}</p>
-                )}
-              </div>
-              <div>
-                <input
-                  placeholder="Mã số sinh viên (MSSV)"
-                  className={`w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-4 transition-all border-2 ${errors.mssv
-                    ? 'border-red-400 focus:ring-red-100 focus:border-red-400'
-                    : 'border-slate-200 focus:ring-blue-100'
-                    }`}
-                  onChange={e => {
-                    setTempProfile({ ...tempProfile, mssv: e.target.value });
-                    if (errors.mssv) setErrors({ ...errors, mssv: '' });
-                  }}
-                />
-                {errors.mssv && (
-                  <p className="text-red-500 text-sm mt-1.5 font-medium">⚠️ {errors.mssv}</p>
+                  <p className="text-red-500 text-sm mt-1.5 font-medium">?? {errors.fullName}</p>
                 )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <input
-                    placeholder="Lớp"
+                    placeholder="L?p"
                     className={`w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-4 transition-all border-2 ${errors.className
                       ? 'border-red-400 focus:ring-red-100 focus:border-red-400'
                       : 'border-slate-200 focus:ring-blue-100'
@@ -163,7 +162,7 @@ const StudentView: React.FC<Props> = ({
                     }}
                   />
                   {errors.className && (
-                    <p className="text-red-500 text-sm mt-1.5 font-medium">⚠️ {errors.className}</p>
+                    <p className="text-red-500 text-sm mt-1.5 font-medium">?? {errors.className}</p>
                   )}
                 </div>
                 <div>
@@ -171,15 +170,15 @@ const StudentView: React.FC<Props> = ({
                     className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-slate-200 outline-none focus:ring-4 focus:ring-blue-100 transition-all font-medium"
                     onChange={e => setTempProfile({ ...tempProfile, studentType: e.target.value as StudentType })}
                   >
-                    <option value={StudentType.UNIVERSITY}>Đại học</option>
-                    <option value={StudentType.COLLEGE}>Cao đẳng</option>
+                    <option value={StudentType.UNIVERSITY}>??i h?c</option>
+                    <option value={StudentType.COLLEGE}>Cao ??ng</option>
                   </select>
                 </div>
               </div>
 
               <div>
                 <input
-                  placeholder="Khoa đào tạo"
+                  placeholder="Khoa ?�o t?o"
                   className={`w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-4 transition-all border-2 ${errors.faculty
                     ? 'border-red-400 focus:ring-red-100 focus:border-red-400'
                     : 'border-slate-200 focus:ring-blue-100'
@@ -190,7 +189,7 @@ const StudentView: React.FC<Props> = ({
                   }}
                 />
                 {errors.faculty && (
-                  <p className="text-red-500 text-sm mt-1.5 font-medium">⚠️ {errors.faculty}</p>
+                  <p className="text-red-500 text-sm mt-1.5 font-medium">?? {errors.faculty}</p>
                 )}
               </div>
             </div>
@@ -198,7 +197,7 @@ const StudentView: React.FC<Props> = ({
               onClick={handleContinue}
               className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold text-lg shadow-lg shadow-blue-200 flex items-center justify-center gap-2 transition-all mt-6"
             >
-              TIẾP TỤC <ArrowRight size={20} />
+              TI?P T?C <ArrowRight size={20} />
             </button>
           </div>
         </div>
@@ -215,35 +214,17 @@ const StudentView: React.FC<Props> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-10">
-      {authUser?.isGuest && (
-        <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl mb-10 flex flex-col md:flex-row items-center justify-between gap-4 animate-in fade-in duration-500">
-          <div className="flex items-center gap-3">
-            <Info className="text-amber-500" size={24} />
-            <div>
-              <p className="text-sm font-bold text-amber-900">Dữ liệu đang được lưu tạm thời!</p>
-              <p className="text-xs text-amber-700">Đăng nhập để lưu hồ sơ vĩnh viễn và theo dõi tiến trình duyệt minh chứng.</p>
-            </div>
-          </div>
-          <button
-            onClick={() => onLogin('google')}
-            className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-md shadow-amber-100"
-          >
-            <Save size={14} /> ĐĂNG NHẬP ĐỂ LƯU
-          </button>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
         <div className="lg:col-span-7 space-y-12">
           <header>
             <h2 className="text-4xl font-black text-slate-800 tracking-tight">
-              Chào, {authUser?.name.split(' ').pop()} 👋
+              Ch�o, {profile.fullName?.split(' ').pop() || 'b?n'} ??
             </h2>
-            <div className="flex items-center gap-3 mt-2">
+            <div className="flex items-center gap-3 mt-2 flex-wrap">
               <span className="text-sm font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-lg uppercase">{profile.fullName}</span>
               <span className="text-sm font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-lg uppercase">MSSV: {profile.mssv}</span>
               <span className="text-sm font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-lg uppercase">{profile.faculty}</span>
-              <span className="text-sm font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-lg uppercase">{profile.studentType === StudentType.UNIVERSITY ? 'Đại học' : 'Cao đẳng'}</span>
+              <span className="text-sm font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-lg uppercase">{profile.studentType === StudentType.UNIVERSITY ? '??i h?c' : 'Cao ??ng'}</span>
             </div>
           </header>
 
@@ -252,23 +233,25 @@ const StudentView: React.FC<Props> = ({
               onClick={() => setActiveTab('dashboard')}
               className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'dashboard' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
             >
-              Hồ sơ 5 Tốt
+              H? s? 5 T?t
             </button>
-            <button
-              onClick={() => setActiveTab('confession')}
-              className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'confession' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              Góc Tâm Sự
-            </button>
+            {confessions && setConfessions && (
+              <button
+                onClick={() => setActiveTab('confession')}
+                className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'confession' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                G�c T�m S?
+              </button>
+            )}
           </div>
 
           {activeTab === 'dashboard' ? (
             <>
               <section>
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="font-black text-xl text-slate-800 uppercase tracking-tight">Hồ sơ Tiêu chí</h3>
+                  <h3 className="font-black text-xl text-slate-800 uppercase tracking-tight">H? s? Ti�u ch�</h3>
                   <div className="flex items-center gap-2 text-xs font-bold text-blue-500 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
-                    <Sparkles size={14} /> TỰ ĐÁNH GIÁ (DỰA TRÊN 201-QĐ/TWHSV)
+                    <Sparkles size={14} /> T? ?�NH GI� (D?A TR�N 201-Q?/TWHSV)
                   </div>
                 </div>
                 <CriteriaForm data={criteria} onChange={setCriteria} />
@@ -278,7 +261,7 @@ const StudentView: React.FC<Props> = ({
                 <EvidenceUploader submissions={submissions} setSubmissions={setSubmissions} userId={authUser?.id || 'guest'} />
               </section>
             </>
-          ) : (
+          ) : confessions && setConfessions ? (
             <ConfessionBoard
               confessions={confessions}
               onAddConfession={handleAddConfession}
@@ -289,7 +272,7 @@ const StudentView: React.FC<Props> = ({
                 setConfessions(confessions.filter(c => c.id !== id));
               }}
             />
-          )}
+          ) : null}
         </div>
 
         <div className="lg:col-span-5 space-y-8">
@@ -302,7 +285,7 @@ const StudentView: React.FC<Props> = ({
               </div>
               <h4 className="font-black text-lg text-slate-800 mb-6 flex items-center gap-3 uppercase tracking-tight">
                 <Info size={24} className="text-blue-500" />
-                Lộ trình cải thiện
+                L? tr�nh c?i thi?n
               </h4>
 
               <div className="space-y-4">
@@ -311,14 +294,14 @@ const StudentView: React.FC<Props> = ({
                   <div className="absolute top-0 right-0 p-4 opacity-10">
                     <GraduationCap size={100} />
                   </div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-blue-200 mb-2">Thông báo quan trọng</p>
-                  <h3 className="text-xl font-bold mb-3 leading-tight">Xét duyệt danh hiệu Sinh viên 5 Tốt</h3>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-blue-200 mb-2">Th�ng b�o quan tr?ng</p>
+                  <h3 className="text-xl font-bold mb-3 leading-tight">X�t duy?t danh hi?u Sinh vi�n 5 T?t</h3>
 
                   {(() => {
                     const today = new Date();
                     const currentYear = today.getFullYear();
                     let targetYear = currentYear;
-                    const startOfCycle = new Date(currentYear, 7, 1); // August 1st
+                    const startOfCycle = new Date(currentYear, 7, 1);
                     if (today >= startOfCycle) {
                       targetYear = currentYear + 1;
                     }
@@ -328,12 +311,12 @@ const StudentView: React.FC<Props> = ({
 
                     return (
                       <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/10">
-                        <p className="text-xs font-medium opacity-90 mb-1">Hạn chót nộp hồ sơ:</p>
+                        <p className="text-xs font-medium opacity-90 mb-1">H?n ch�t n?p h? s?:</p>
                         <div className="flex items-end gap-2">
                           <span className="text-3xl font-black text-white">{diffDays}</span>
-                          <span className="text-sm font-bold mb-1.5 opacity-80">ngày còn lại</span>
+                          <span className="text-sm font-bold mb-1.5 opacity-80">ng�y c�n l?i</span>
                         </div>
-                        <p className="text-[10px] opacity-60 mt-2 italic">Tính đến ngày 01/08/{targetYear}</p>
+                        <p className="text-[10px] opacity-60 mt-2 italic">T�nh ??n ng�y 01/08/{targetYear}</p>
                       </div>
                     );
                   })()}
@@ -344,12 +327,12 @@ const StudentView: React.FC<Props> = ({
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 mt-6 mb-2">
                       <GraduationCap size={16} className="text-amber-500" />
-                      <h4 className="text-sm font-black text-slate-700 uppercase tracking-tight">Học bổng Active</h4>
+                      <h4 className="text-sm font-black text-slate-700 uppercase tracking-tight">H?c b?ng Active</h4>
                     </div>
                     {scholarships.map(scholarship => (
                       <div key={scholarship.id} className="p-5 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-amber-200 transition-all group">
                         <div className="flex justify-between items-start mb-2">
-                          <span className="px-2 py-0.5 bg-amber-50 text-amber-600 rounded text-[9px] font-black uppercase tracking-widest border border-amber-100">Mới</span>
+                          <span className="px-2 py-0.5 bg-amber-50 text-amber-600 rounded text-[9px] font-black uppercase tracking-widest border border-amber-100">M?i</span>
                           <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
                             <Clock size={12} />
                             <span>{new Date(scholarship.expiryDate).toLocaleDateString('vi-VN')}</span>
@@ -367,7 +350,7 @@ const StudentView: React.FC<Props> = ({
                 {failingCategories.length === 0 ? (
                   <div className="p-5 bg-green-50 border border-green-100 rounded-3xl text-sm text-green-700 font-bold flex items-start gap-3">
                     <Sparkles className="shrink-0 mt-1" size={18} />
-                    <span>Chúc mừng! Bạn đã đạt đủ tất cả tiêu chí cứng. Hãy nộp minh chứng ngay để Admin phê duyệt.</span>
+                    <span>Ch�c m?ng! B?n ?� ??t ?? t?t c? ti�u ch� c?ng. H�y n?p minh ch?ng ngay ?? Admin ph� duy?t.</span>
                   </div>
                 ) : (
                   failingCategories.map(cat => (
@@ -392,7 +375,7 @@ const StudentView: React.FC<Props> = ({
               <div className="flex items-center justify-between mb-8">
                 <h4 className="font-black text-lg flex items-center gap-3 uppercase tracking-tight">
                   <Calendar size={24} className="text-blue-400" />
-                  Sự kiện đề xuất
+                  S? ki?n ?? xu?t
                 </h4>
               </div>
 
@@ -413,7 +396,7 @@ const StudentView: React.FC<Props> = ({
                       <p className="font-bold text-slate-100 mb-1 group-hover:text-blue-400 transition-colors leading-snug">{event.title}</p>
                       <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed mb-4">{event.description}</p>
                       <div className="flex items-center justify-between pt-4 border-t border-slate-700/50">
-                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">📍 {event.location}</span>
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">?? {event.location}</span>
                         {event.link ? (
                           <a
                             href={event.link}
@@ -421,18 +404,18 @@ const StudentView: React.FC<Props> = ({
                             rel="noopener noreferrer"
                             className="text-[10px] text-blue-400 font-black uppercase tracking-widest flex items-center gap-1 hover:text-blue-300 transition-colors"
                           >
-                            Đăng ký <ExternalLink size={12} />
+                            ??ng k� <ExternalLink size={12} />
                           </a>
                         ) : (
-                          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest italic">Chưa có link</span>
+                          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest italic">Ch?a c� link</span>
                         )}
                       </div>
                     </div>
                   ))
                 ) : (
                   <div className="text-center py-12 px-6 border border-dashed border-slate-700 rounded-3xl">
-                    <p className="text-xs text-slate-500 italic mb-2">Không tìm thấy sự kiện khớp với tiêu chí bạn còn thiếu.</p>
-                    <p className="text-[10px] text-slate-600">Thường xuyên kiểm tra để không bỏ lỡ hoạt động mới.</p>
+                    <p className="text-xs text-slate-500 italic mb-2">Kh�ng t�m th?y s? ki?n kh?p v?i ti�u ch� b?n c�n thi?u.</p>
+                    <p className="text-[10px] text-slate-600">Th??ng xuy�n ki?m tra ?? kh�ng b? l? ho?t ??ng m?i.</p>
                   </div>
                 )}
               </div>

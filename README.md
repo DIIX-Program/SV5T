@@ -28,3 +28,6 @@ Hệ thống đồng thời cung cấp định hướng cải thiện cho từng
 - Kết nối cơ sở dữ liệu MongoDB
 - Tích hợp Google OAuth 2.0
 - Mở rộng thống kê và phân tích dữ liệu
+
+
+Thiện
