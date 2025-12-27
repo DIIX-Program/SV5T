@@ -113,7 +113,11 @@ export const useNotificationLogic = () => {
 
   // Logic kiểm tra hạn nộp hồ sơ dựa trên năm học (1/8 năm nay -> 1/8 năm sau)
   useEffect(() => {
+    let isMounted = true; // Flag to prevent duplicate notifications
+    
     const checkDeadline = () => {
+      if (!isMounted) return;
+      
       const today = new Date();
       const currentYear = today.getFullYear();
 
@@ -141,28 +145,44 @@ export const useNotificationLogic = () => {
 
       // Chỉ thông báo nếu còn dưới 30 ngày (hoặc mock demo luôn hiển thị để user thấy)
       // DEMO: Luôn hiện thông báo tính toán đúng ngày
-      setTimeout(() => {
-        addNotification({
-          type: 'warning',
-          title: 'Nhắc nhở hạn nộp hồ sơ SV5T',
-          message: `Năm học xét duyệt hiện tại sẽ kết thúc vào ngày 01/08/${targetYear}. Bạn còn ${diffDays} ngày để hoàn thành các tiêu chí.`,
-        });
+      const timer1 = setTimeout(() => {
+        if (isMounted) {
+          addNotification({
+            type: 'warning',
+            title: 'Nhắc nhở hạn nộp hồ sơ SV5T',
+            message: `Năm học xét duyệt hiện tại sẽ kết thúc vào ngày 01/08/${targetYear}. Bạn còn ${diffDays} ngày để hoàn thành các tiêu chí.`,
+          });
+        }
       }, 3000);
+      
+      return timer1;
     };
 
     const checkScholarships = () => {
-      setTimeout(() => {
-        addNotification({
-          type: 'info',
-          title: 'Cập nhật Học bổng SV5T',
-          message: 'Học bổng Odon Vallet và Lawrence S. Ting 2025 đang mở đơn cho sinh viên đạt danh hiệu SV5T cấp trường trở lên.',
-          link: '#'
-        });
+      if (!isMounted) return;
+      
+      const timer2 = setTimeout(() => {
+        if (isMounted) {
+          addNotification({
+            type: 'info',
+            title: 'Cập nhật Học bổng SV5T',
+            message: 'Học bổng Odon Vallet và Lawrence S. Ting 2025 đang mở đơn cho sinh viên đạt danh hiệu SV5T cấp trường trở lên.',
+            link: '#'
+          });
+        }
       }, 8000);
+      
+      return timer2;
     };
 
-    checkDeadline();
-    checkScholarships();
+    const timer1 = checkDeadline();
+    const timer2 = checkScholarships();
 
+    // Cleanup function
+    return () => {
+      isMounted = false;
+      if (timer1) clearTimeout(timer1);
+      if (timer2) clearTimeout(timer2);
+    };
   }, [addNotification]);
 };
