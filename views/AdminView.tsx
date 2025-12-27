@@ -40,6 +40,26 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  
+  // Event management
+  const [showEventForm, setShowEventForm] = useState(false);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [eventForm, setEventForm] = useState({
+    title: '',
+    date: '',
+    description: '',
+    categories: [] as string[],
+    location: ''
+  });
+  
+  // Student filters
+  const [studentFilters, setStudentFilters] = useState({
+    faculty: '',
+    status: '',
+    academicYear: ''
+  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const stats = {
     totalSubmissions: submissions.length,
@@ -83,6 +103,92 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
     setPasswordError('');
     alert('Mật khẩu đã được cập nhật thành công!');
   };
+
+  // Event handlers
+  const handleAddEvent = () => {
+    if (!eventForm.title || !eventForm.date || !eventForm.description || !eventForm.location || eventForm.categories.length === 0) {
+      alert('Vui lòng điền đầy đủ thông tin sự kiện');
+      return;
+    }
+
+    if (editingEventId) {
+      // Update existing event
+      setEvents(events.map(e => 
+        e.id === editingEventId 
+          ? { ...e, ...eventForm }
+          : e
+      ));
+      setEditingEventId(null);
+    } else {
+      // Create new event
+      const newEvent: UniversityEvent = {
+        id: Math.random().toString(36).substr(2, 9),
+        ...eventForm
+      };
+      setEvents([...events, newEvent]);
+    }
+
+    setEventForm({
+      title: '',
+      date: '',
+      description: '',
+      categories: [],
+      location: ''
+    });
+    setShowEventForm(false);
+    alert('Sự kiện đã được ' + (editingEventId ? 'cập nhật' : 'tạo') + ' thành công!');
+  };
+
+  const handleEditEvent = (event: UniversityEvent) => {
+    setEventForm({
+      title: event.title,
+      date: event.date,
+      description: event.description,
+      categories: event.categories,
+      location: event.location
+    });
+    setEditingEventId(event.id);
+    setShowEventForm(true);
+  };
+
+  const toggleCategory = (category: string) => {
+    setEventForm(prev => ({
+      ...prev,
+      categories: prev.categories.includes(category)
+        ? prev.categories.filter(c => c !== category)
+        : [...prev.categories, category]
+    }));
+  };
+
+  // Filter and search submissions
+  const filteredSubmissions = submissions.filter(s => 
+    searchTerm === '' || 
+    s.userId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    s.description.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Filter and paginate students (mock data)
+  const mockStudents = Array.from({ length: 45 }, (_, i) => ({
+    id: `SV${String(i + 1).padStart(4, '0')}`,
+    mssv: `2024${String(i + 1).padStart(3, '0')}`,
+    name: `Sinh viên ${i + 1}`,
+    faculty: ['Công nghệ Thông tin', 'Kinh tế - Quản trị', 'Cơ khí - Kỹ thuật', 'Ngôn ngữ & Văn hóa'][i % 4],
+    status: ['Đủ điều kiện', 'Gần đủ', 'Chưa đủ'][i % 3],
+    gpa: (3.2 + Math.random() * 0.8).toFixed(2),
+    completionPercent: Math.floor(60 + Math.random() * 40)
+  }));
+
+  const filteredStudents = mockStudents.filter(s => {
+    if (studentFilters.faculty && s.faculty !== studentFilters.faculty) return false;
+    if (studentFilters.status && s.status !== studentFilters.status) return false;
+    return true;
+  });
+
+  const paginatedStudents = filteredStudents.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+  const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
 
   const exportToExcel = () => {
     alert("Hệ thống đang trích xuất dữ liệu SV5T toàn trường. File Excel (.xlsx) sẽ được tải xuống sau giây lát...");
@@ -264,7 +370,7 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {submissions.length === 0 ? (
+                  {filteredSubmissions.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="px-8 py-32 text-center text-slate-400 italic">
                         <FileCheck size={64} className="mx-auto text-slate-100 mb-6 opacity-40" />
@@ -272,7 +378,7 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                       </td>
                     </tr>
                   ) : (
-                    submissions.map((s) => (
+                    filteredSubmissions.map((s) => (
                       <tr key={s.id} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="px-8 py-7">
                           <p className="font-black text-slate-800 text-sm">#{s.userId.toUpperCase().slice(0, 8)}</p>
@@ -342,10 +448,106 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                 <h2 className="text-3xl font-black text-slate-800 tracking-tight uppercase">Quản lý Hoạt động & Sự kiện</h2>
                 <p className="text-slate-500 font-medium">Đăng tải các sự kiện giúp sinh viên hoàn thiện tiêu chí SV5T.</p>
               </div>
-              <button className="bg-slate-900 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase tracking-widest shadow-xl shadow-slate-200 hover:bg-black transition-all flex items-center gap-3">
-                <CalendarPlus size={20} /> Tạo sự kiện mới
+              <button 
+                onClick={() => {
+                  setShowEventForm(!showEventForm);
+                  setEditingEventId(null);
+                  setEventForm({ title: '', date: '', description: '', categories: [], location: '' });
+                }}
+                className="bg-slate-900 text-white px-8 py-4 rounded-3xl font-black text-xs uppercase tracking-widest shadow-xl shadow-slate-200 hover:bg-black transition-all flex items-center gap-3"
+              >
+                <CalendarPlus size={20} /> {showEventForm ? 'Đóng' : 'Tạo sự kiện mới'}
               </button>
             </header>
+
+            {showEventForm && (
+              <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
+                <h3 className="text-xl font-bold text-slate-800">{editingEventId ? 'Chỉnh sửa' : 'Tạo mới'} sự kiện</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Tên sự kiện</label>
+                    <input 
+                      type="text"
+                      value={eventForm.title}
+                      onChange={(e) => setEventForm({...eventForm, title: e.target.value})}
+                      placeholder="Vd: Hội thảo Kỹ năng số..."
+                      className="w-full px-4 py-3 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-100 transition-all"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Ngày tổ chức</label>
+                    <input 
+                      type="date"
+                      value={eventForm.date}
+                      onChange={(e) => setEventForm({...eventForm, date: e.target.value})}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-100 transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Địa điểm</label>
+                    <input 
+                      type="text"
+                      value={eventForm.location}
+                      onChange={(e) => setEventForm({...eventForm, location: e.target.value})}
+                      placeholder="Vd: Hội trường A, Phòng B.201..."
+                      className="w-full px-4 py-3 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-100 transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Tiêu chí hỗ trợ</label>
+                    <div className="flex flex-wrap gap-2">
+                      {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+                        <button
+                          key={key}
+                          onClick={() => toggleCategory(key)}
+                          className={`text-xs font-bold px-3 py-2 rounded-xl transition-all border ${
+                            eventForm.categories.includes(key)
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-blue-200'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Mô tả sự kiện</label>
+                  <textarea 
+                    value={eventForm.description}
+                    onChange={(e) => setEventForm({...eventForm, description: e.target.value})}
+                    placeholder="Mô tả chi tiết về sự kiện..."
+                    rows={4}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-100 transition-all resize-none"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t border-slate-100">
+                  <button 
+                    onClick={handleAddEvent}
+                    className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-blue-700 transition-colors"
+                  >
+                    {editingEventId ? 'Cập nhật' : 'Tạo'} sự kiện
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setShowEventForm(false);
+                      setEditingEventId(null);
+                      setEventForm({ title: '', date: '', description: '', categories: [], location: '' });
+                    }}
+                    className="flex-1 bg-slate-100 text-slate-700 px-6 py-3 rounded-2xl font-bold hover:bg-slate-200 transition-colors"
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {events.map(event => (
@@ -359,10 +561,16 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                       ))}
                     </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-2.5 text-slate-400 hover:text-blue-500 transition-colors bg-slate-50 rounded-xl">
+                      <button 
+                        onClick={() => handleEditEvent(event)}
+                        className="p-2.5 text-slate-400 hover:text-blue-500 transition-colors bg-slate-50 rounded-xl"
+                      >
                         <FileCheck size={16} />
                       </button>
-                      <button onClick={() => setEvents(events.filter(e => e.id !== event.id))} className="p-2.5 text-slate-400 hover:text-rose-500 transition-colors bg-slate-50 rounded-xl">
+                      <button 
+                        onClick={() => setEvents(events.filter(e => e.id !== event.id))}
+                        className="p-2.5 text-slate-400 hover:text-rose-500 transition-colors bg-slate-50 rounded-xl"
+                      >
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -385,24 +593,120 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
 
         {tab === 'students' && (
            <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-300">
-              <header className="flex justify-between items-center">
+              <header className="flex flex-col lg:flex-row justify-between lg:items-center gap-6">
                 <h2 className="text-3xl font-black text-slate-800 tracking-tight uppercase">Danh sách Hồ sơ Sinh viên</h2>
                 <div className="flex gap-3">
-                   <button className="px-5 py-4 bg-white border border-slate-200 rounded-2xl text-slate-500 font-bold text-sm hover:text-blue-600 hover:border-blue-200 transition-all flex items-center gap-2 shadow-sm">
-                      <Filter size={18} /> Bộ lọc nâng cao
-                   </button>
-                   <button className="px-5 py-4 bg-white border border-slate-200 rounded-2xl text-slate-500 font-bold text-sm hover:text-blue-600 hover:border-blue-200 transition-all flex items-center gap-2 shadow-sm">
-                      <Search size={18} /> Tìm kiếm nhanh
-                   </button>
+                   <select 
+                     value={studentFilters.faculty}
+                     onChange={(e) => {
+                       setStudentFilters({...studentFilters, faculty: e.target.value});
+                       setCurrentPage(1);
+                     }}
+                     className="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-slate-600 font-bold text-sm outline-none focus:ring-4 focus:ring-blue-100"
+                   >
+                     <option value="">Tất cả khoa</option>
+                     <option value="Công nghệ Thông tin">Công nghệ Thông tin</option>
+                     <option value="Kinh tế - Quản trị">Kinh tế - Quản trị</option>
+                     <option value="Cơ khí - Kỹ thuật">Cơ khí - Kỹ thuật</option>
+                     <option value="Ngôn ngữ & Văn hóa">Ngôn ngữ & Văn hóa</option>
+                   </select>
+                   <select 
+                     value={studentFilters.status}
+                     onChange={(e) => {
+                       setStudentFilters({...studentFilters, status: e.target.value});
+                       setCurrentPage(1);
+                     }}
+                     className="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-slate-600 font-bold text-sm outline-none focus:ring-4 focus:ring-blue-100"
+                   >
+                     <option value="">Tất cả trạng thái</option>
+                     <option value="Đủ điều kiện">Đủ điều kiện</option>
+                     <option value="Gần đủ">Gần đủ</option>
+                     <option value="Chưa đủ">Chưa đủ</option>
+                   </select>
                 </div>
               </header>
-              <div className="bg-white p-32 rounded-[3rem] border border-slate-200 border-dashed text-center shadow-inner">
-                 <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <Users size={32} className="text-slate-200" />
-                 </div>
-                 <h4 className="text-slate-800 font-bold mb-2">Đang kết nối Database...</h4>
-                 <p className="text-slate-400 italic text-sm max-w-sm mx-auto">Tính năng quản lý danh sách sinh viên toàn trường đang được đồng bộ hóa dữ liệu từ hệ thống quản lý đào tạo.</p>
+
+              <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/50 border-b border-slate-100">
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">MSSV & Tên</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Khoa</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">GPA</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Tiến độ</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Trạng thái</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {paginatedStudents.map((student) => (
+                      <tr key={student.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-8 py-6">
+                          <p className="font-bold text-slate-800 text-sm">{student.name}</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">MSSV: {student.mssv}</p>
+                        </td>
+                        <td className="px-8 py-6">
+                          <p className="text-sm font-bold text-slate-700">{student.faculty}</p>
+                        </td>
+                        <td className="px-8 py-6">
+                          <p className="text-sm font-black text-slate-800">{student.gpa}</p>
+                        </td>
+                        <td className="px-8 py-6">
+                          <div className="flex items-center gap-2">
+                            <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-blue-500 rounded-full transition-all"
+                                style={{width: `${student.completionPercent}%`}}
+                              />
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-600">{student.completionPercent}%</span>
+                          </div>
+                        </td>
+                        <td className="px-8 py-6">
+                          <span className={`text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest border ${
+                            student.status === 'Đủ điều kiện' ? 'bg-green-50 text-green-600 border-green-100' :
+                            student.status === 'Gần đủ' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                            'bg-rose-50 text-rose-600 border-rose-100'
+                          }`}>
+                            {student.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
+
+              {totalPages > 1 && (
+                <div className="flex justify-center items-center gap-2 mt-6">
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 border border-slate-200 rounded-lg text-slate-600 font-bold hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Trước
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => (
+                    <button
+                      key={i + 1}
+                      onClick={() => setCurrentPage(i + 1)}
+                      className={`px-3 py-2 rounded-lg font-bold transition-all ${
+                        currentPage === i + 1
+                          ? 'bg-blue-600 text-white'
+                          : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 border border-slate-200 rounded-lg text-slate-600 font-bold hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Sau
+                  </button>
+                </div>
+              )}
            </div>
         )}
 
