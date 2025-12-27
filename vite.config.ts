@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => {
       plugins: [react()],
       define: {
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'import.meta.env.VITE_API_URL': JSON.stringify(env.REACT_APP_API_URL || 'http://localhost:5001/api')
+        'import.meta.env.VITE_API_URL': JSON.stringify(env.REACT_APP_API_URL || 'http://localhost:5000/api')
       },
       build: {
         target: 'esnext',

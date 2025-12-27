@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { EvidenceSubmission, EvidenceStatus, UniversityEvent, EvaluationStatus, User } from '../types';
 import bcrypt from 'bcryptjs';
 import { 
@@ -22,6 +22,7 @@ import {
   Settings
 } from 'lucide-react';
 import { CATEGORY_LABELS } from '../constants';
+import { studentAPI } from '../services/api';
 
 interface Props {
   submissions: EvidenceSubmission[];
@@ -40,6 +41,34 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  
+  // Students data
+  const [students, setStudents] = useState([]);
+  const [loadingStudents, setLoadingStudents] = useState(false);
+
+  // Fetch students when tab changes to students
+  useEffect(() => {
+    if (tab === 'students') {
+      fetchStudents();
+    }
+  }, [tab]);
+
+  const fetchStudents = async () => {
+    setLoadingStudents(true);
+    try {
+      const response = await studentAPI.getAll();
+      if (response.data.success) {
+        setStudents(response.data.data);
+      } else {
+        console.error('API returned error:', response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching students:', error);
+      alert('Không thể tải dữ liệu sinh viên. Vui lòng kiểm tra kết nối server.');
+    } finally {
+      setLoadingStudents(false);
+    }
+  };
   
   // Event management
   const [showEventForm, setShowEventForm] = useState(false);
@@ -171,18 +200,18 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
     s.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Filter and paginate students (mock data)
-  const mockStudents = Array.from({ length: 45 }, (_, i) => ({
-    id: `SV${String(i + 1).padStart(4, '0')}`,
-    mssv: `2024${String(i + 1).padStart(3, '0')}`,
-    name: `Sinh viên ${i + 1}`,
-    faculty: ['Công nghệ Thông tin', 'Kinh tế - Quản trị', 'Cơ khí - Kỹ thuật', 'Ngôn ngữ & Văn hóa'][i % 4],
-    status: ['Đủ điều kiện', 'Gần đủ', 'Chưa đủ'][i % 3],
-    gpa: (3.2 + Math.random() * 0.8).toFixed(2),
-    completionPercent: Math.floor(60 + Math.random() * 40)
+  // Filter and paginate students
+  const studentList = students.map(student => ({
+    id: student._id,
+    mssv: student.mssv,
+    name: student.fullName,
+    faculty: student.faculty,
+    status: 'Đủ điều kiện', // TODO: calculate based on evaluation criteria
+    gpa: student.gpa || 0,
+    completionPercent: 100 // TODO: calculate based on completed criteria
   }));
 
-  const filteredStudents = mockStudents.filter(s => {
+  const filteredStudents = studentList.filter(s => {
     if (studentFilters.faculty && s.faculty !== studentFilters.faculty) return false;
     if (studentFilters.status && s.status !== studentFilters.status) return false;
     return true;
@@ -195,14 +224,14 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
   const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
 
   const exportToExcel = () => {
-    if (mockStudents.length === 0) {
+    if (studentList.length === 0) {
       alert('Không có dữ liệu để xuất');
       return;
     }
 
     // Create CSV content
     const headers = ['MSSV', 'Tên sinh viên', 'Khoa', 'GPA', 'Tiến độ (%)', 'Trạng thái'];
-    const rows = mockStudents.map(s => [
+    const rows = studentList.map(s => [
       s.mssv,
       s.name,
       s.faculty,
@@ -646,36 +675,30 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
               <header className="flex flex-col lg:flex-row justify-between lg:items-center gap-6">
                 <h2 className="text-3xl font-black text-slate-800 tracking-tight uppercase">Danh sách Hồ sơ Sinh viên</h2>
                 <div className="flex gap-3">
-                   <select 
-                     value={studentFilters.faculty}
-                     onChange={(e) => {
-                       setStudentFilters({...studentFilters, faculty: e.target.value});
-                       setCurrentPage(1);
-                     }}
-                     className="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-slate-600 font-bold text-sm outline-none focus:ring-4 focus:ring-blue-100"
+                   <button
+                     onClick={fetchStudents}
+                     className="px-6 py-3 bg-green-500 text-white rounded-2xl font-bold text-sm hover:bg-green-600 transition-colors flex items-center gap-2"
                    >
-                     <option value="">Tất cả khoa</option>
-                     <option value="Công nghệ Thông tin">Công nghệ Thông tin</option>
-                     <option value="Kinh tế - Quản trị">Kinh tế - Quản trị</option>
-                     <option value="Cơ khí - Kỹ thuật">Cơ khí - Kỹ thuật</option>
-                     <option value="Ngôn ngữ & Văn hóa">Ngôn ngữ & Văn hóa</option>
-                   </select>
-                   <select 
-                     value={studentFilters.status}
-                     onChange={(e) => {
-                       setStudentFilters({...studentFilters, status: e.target.value});
-                       setCurrentPage(1);
-                     }}
-                     className="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-slate-600 font-bold text-sm outline-none focus:ring-4 focus:ring-blue-100"
+                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                     </svg>
+                     Làm mới
+                   </button>
+                   <button
+                     onClick={exportToExcel}
+                     className="px-6 py-3 bg-blue-500 text-white rounded-2xl font-bold text-sm hover:bg-blue-600 transition-colors flex items-center gap-2"
                    >
-                     <option value="">Tất cả trạng thái</option>
-                     <option value="Đủ điều kiện">Đủ điều kiện</option>
-                     <option value="Gần đủ">Gần đủ</option>
-                     <option value="Chưa đủ">Chưa đủ</option>
-                   </select>
+                     <Download size={16} /> Xuất Excel
+                   </button>
                 </div>
               </header>
 
+              {loadingStudents ? (
+                <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-12 text-center">
+                  <div className="animate-spin w-8 h-8 border-4 border-blue-200 border-t-blue-500 rounded-full mx-auto mb-4"></div>
+                  <p className="text-slate-600">Đang tải dữ liệu sinh viên...</p>
+                </div>
+              ) : (
               <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -724,38 +747,37 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                     ))}
                   </tbody>
                 </table>
-              </div>
 
-              {totalPages > 1 && (
-                <div className="flex justify-center items-center gap-2 mt-6">
-                  <button 
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                    className="px-4 py-2 border border-slate-200 rounded-lg text-slate-600 font-bold hover:bg-slate-50 disabled:opacity-50"
-                  >
-                    Trước
-                  </button>
-                  {Array.from({ length: totalPages }, (_, i) => (
-                    <button
-                      key={i + 1}
-                      onClick={() => setCurrentPage(i + 1)}
-                      className={`px-3 py-2 rounded-lg font-bold transition-all ${
-                        currentPage === i + 1
-                          ? 'bg-blue-600 text-white'
-                          : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
-                      }`}
-                    >
-                      {i + 1}
-                    </button>
-                  ))}
-                  <button 
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                    className="px-4 py-2 border border-slate-200 rounded-lg text-slate-600 font-bold hover:bg-slate-50 disabled:opacity-50"
-                  >
-                    Sau
-                  </button>
-                </div>
+                {filteredStudents.length === 0 && (
+                  <div className="p-12 text-center">
+                    <p className="text-slate-500">Không tìm thấy sinh viên nào</p>
+                  </div>
+                )}
+
+                {totalPages > 1 && (
+                  <div className="px-8 py-6 border-t border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
+                      Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredStudents.length)} của {filteredStudents.length} sinh viên
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                        disabled={currentPage === 1}
+                        className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold text-sm hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Trước
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold text-sm hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Tiếp
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
               )}
            </div>
         )}

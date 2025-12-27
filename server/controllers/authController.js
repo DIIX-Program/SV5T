@@ -100,7 +100,7 @@ export const registerStudent = async (req, res) => {
   }
 };
 
-// Student Login
+// Unified Login (for both students and admins)
 export const loginStudent = async (req, res) => {
   try {
     const { mssv, password } = req.body;
@@ -121,8 +121,8 @@ export const loginStudent = async (req, res) => {
       });
     }
 
-    // Find student
-    const user = await User.findOne({ mssv, role: 'STUDENT' });
+    // Find user (student or admin)
+    const user = await User.findOne({ mssv });
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -139,8 +139,9 @@ export const loginStudent = async (req, res) => {
       });
     }
 
-    // Generate token
-    const token = generateToken(user);
+    // Generate token based on role
+    const isAdmin = user.role === 'ADMIN';
+    const token = generateToken(user, isAdmin);
 
     res.status(200).json({
       success: true,

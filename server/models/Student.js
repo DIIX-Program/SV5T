@@ -75,8 +75,6 @@ const StudentSchema = new mongoose.Schema({
 });
 
 // Indexes for performance
-StudentSchema.index({ mssv: 1 });
-StudentSchema.index({ email: 1 });
 StudentSchema.index({ faculty: 1 });
 StudentSchema.index({ academicYear: 1 });
 StudentSchema.index({ 'evaluationResult.status': 1 });

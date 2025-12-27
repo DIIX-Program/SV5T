@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Create axios instance with default config
 const apiClient = axios.create({
@@ -34,7 +34,7 @@ apiClient.interceptors.response.use(
 export const authAPI = {
   register: (data) => axios.post(`${API_BASE_URL}/auth/register`, data),
   login: (data) => axios.post(`${API_BASE_URL}/auth/login`, data),
-  adminLogin: (data) => axios.post(`${API_BASE_URL}/auth/admin/login`, data),
+  adminLogin: (data) => axios.post(`${API_BASE_URL}/auth/login`, data), // Now uses the same endpoint
   getCurrentUser: () => apiClient.get(`/auth/me`),
   logout: () => {
     localStorage.removeItem('sv5t_token');

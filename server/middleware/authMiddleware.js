@@ -24,7 +24,13 @@ export const authenticate = (req, res, next) => {
       });
     }
 
-    const decoded = verifyToken(token);
+    // Try to verify with student secret first
+    let decoded = verifyToken(token, false);
+    if (!decoded) {
+      // If failed, try with admin secret
+      decoded = verifyToken(token, true);
+    }
+
     if (!decoded) {
       return res.status(401).json({
         success: false,

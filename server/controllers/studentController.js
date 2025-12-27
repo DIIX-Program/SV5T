@@ -1,16 +1,31 @@
-import { Student } from '../models/Student.js';
+import User from '../models/User.js';
 
 // Get all students
 export const getAllStudents = async (req, res) => {
   try {
     const { faculty, academicYear, status } = req.query;
-    let filter = {};
+    let filter = { role: 'STUDENT' };
 
-    if (faculty) filter.faculty = faculty;
-    if (academicYear) filter.academicYear = parseInt(academicYear);
-    if (status) filter['evaluationResult.status'] = status;
+    if (faculty) filter['profile.faculty'] = faculty;
+    if (academicYear) filter['profile.academicYear'] = parseInt(academicYear);
+    // status filter may not apply to User model
 
-    const students = await Student.find(filter).sort({ createdAt: -1 });
+    // Fetch from database
+    const users = await User.find(filter);
+
+    // Map User data to expected student format
+    const students = users.map(user => ({
+      _id: user._id,
+      mssv: user.mssv,
+      fullName: user.profile.name,
+      faculty: user.profile.faculty,
+      academicYear: user.profile.academicYear,
+      studentType: user.profile.studentType,
+      gpa: 0, // Default, as User model doesn't have GPA
+      status: 'Đủ điều kiện', // Default status
+      completionPercent: 100 // Default
+    }));
+
     res.json({
       success: true,
       count: students.length,
