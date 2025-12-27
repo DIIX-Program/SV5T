@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { EvidenceSubmission, EvidenceStatus, UniversityEvent, EvaluationStatus, User } from '../types';
 import bcrypt from 'bcryptjs';
@@ -22,6 +21,8 @@ import {
   Settings
 } from 'lucide-react';
 import { CATEGORY_LABELS } from '../constants';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 
 interface Props {
   submissions: EvidenceSubmission[];
@@ -194,42 +195,50 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
   );
   const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     if (mockStudents.length === 0) {
       alert('Không có dữ liệu để xuất');
       return;
     }
 
-    // Create CSV content
-    const headers = ['MSSV', 'Tên sinh viên', 'Khoa', 'GPA', 'Tiến độ (%)', 'Trạng thái'];
-    const rows = mockStudents.map(s => [
-      s.mssv,
-      s.name,
-      s.faculty,
-      s.gpa,
-      s.completionPercent,
-      s.status
-    ]);
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Danh sách sinh viên');
 
-    let csvContent = headers.join(',') + '\n';
-    rows.forEach(row => {
-      csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
-    });
+      // ========== HEADER ==========
+      const headerRow = worksheet.addRow(['MSSV', 'Tên sinh viên', 'Khoa', 'GPA', 'Tiến độ (%)', 'Trạng thái']);
+      
+      // Styling header
+      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
+      headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
 
-    // Create blob and download
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', `DANH_SACH_SINH_VIEN_SV5T_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.csv`);
-    link.style.visibility = 'hidden';
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    alert('✅ File Excel đã được xuất thành công!');
+      // ========== DATA ROWS ==========
+      mockStudents.forEach(s => {
+        worksheet.addRow([s.mssv, s.name, s.faculty, s.gpa, s.completionPercent, s.status]);
+      });
+
+      // ========== COLUMN WIDTH ==========
+      worksheet.columns = [
+        { width: 15 },  // MSSV
+        { width: 25 },  // Tên sinh viên
+        { width: 25 },  // Khoa
+        { width: 10 },  // GPA
+        { width: 15 },  // Tiến độ
+        { width: 15 }   // Trạng thái
+      ];
+
+      // ========== EXPORT ==========
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const fileName = `DANH_SACH_SINH_VIEN_SV5T_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.xlsx`;
+      
+      saveAs(blob, fileName);
+      alert('✅ File Excel đã được xuất thành công!');
+    } catch (error) {
+      console.error('Lỗi xuất Excel:', error);
+      alert('❌ Lỗi khi xuất file Excel');
+    }
   };
 
   return (

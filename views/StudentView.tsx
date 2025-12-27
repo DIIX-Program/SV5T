@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
   AuthUser,
@@ -36,6 +35,56 @@ const StudentView: React.FC<Props> = ({
     studentType: StudentType.UNIVERSITY
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    const fullName = (tempProfile.fullName || '').trim();
+    if (!fullName) {
+      newErrors.fullName = 'Họ tên không được để trống';
+    }
+
+    const mssv = (tempProfile.mssv || '').trim();
+    // Cỏ thể add regex kiểm tra định dạng MSSV tùy chỉnh theo mỗi trường
+    if (!mssv) {
+      newErrors.mssv = 'Mã số sinh viên không được để trống';
+    } else if (!/^\d{10}$/.test(mssv)) {
+      newErrors.mssv = 'MSSV phải là 10 chữ số. Ví dụ: 1923050001';
+    }
+
+    const className = (tempProfile.className || '').trim();
+    if (!className) {
+      newErrors.className = 'Lớp không được để trống';
+    }
+
+    const faculty = (tempProfile.faculty || '').trim();
+    if (!faculty) {
+      newErrors.faculty = 'Khoa đào tạo không được để trống';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleContinue = () => {
+    if (validateForm()) {
+      // Auto-switch to guest mode if user hasn't chosen a login option
+      if (!authUser) {
+        onLogin('guest'); // guest mode
+      }
+      // Nếu hợp lệ, trim tất cả dữ liệu trước khi lưu
+      const trimmedProfile: Partial<UserProfile> = {
+        ...tempProfile,
+        fullName: (tempProfile.fullName || '').trim(),
+        mssv: (tempProfile.mssv || '').trim(),
+        className: (tempProfile.className || '').trim(),
+        faculty: (tempProfile.faculty || '').trim(),
+      };
+      setProfile({ ...trimmedProfile, userId: authUser?.id || 'guest' } as UserProfile);
+    }
+  };
+
   if (!profile) {
     return (
       <div className="max-w-xl mx-auto mt-20 px-6 animate-in slide-in-from-bottom-4 duration-500">
@@ -50,44 +99,89 @@ const StudentView: React.FC<Props> = ({
 
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4">
-              <input 
-                placeholder="Họ và tên" 
-                className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 outline-none focus:ring-4 focus:ring-blue-100 transition-all"
-                onChange={e => setTempProfile({...tempProfile, mssv: e.target.value})} // Sử dụng MSSV làm field tạm trong logic này
-              />
-              <input 
-                placeholder="Mã số sinh viên (MSSV)" 
-                className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 outline-none focus:ring-4 focus:ring-blue-100 transition-all font-bold"
-                onChange={e => setTempProfile({...tempProfile, mssv: e.target.value})}
-              />
-              <div className="grid grid-cols-2 gap-4">
+              <div>
                 <input 
-                  placeholder="Lớp" 
-                  className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 outline-none focus:ring-4 focus:ring-blue-100 transition-all"
-                  onChange={e => setTempProfile({...tempProfile, className: e.target.value})}
+                  placeholder="Họ và tên" 
+                  className={`w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-4 transition-all border-2 ${
+                    errors.fullName 
+                      ? 'border-red-400 focus:ring-red-100 focus:border-red-400' 
+                      : 'border-slate-200 focus:ring-blue-100'
+                  }`}
+                  onChange={e => {
+                    setTempProfile({ ...tempProfile, fullName: e.target.value }); // dùng fullName, có thể điều chỉnh dữ liệu sau
+                    if (errors.fullName) setErrors({ ...errors, fullName: '' });
+                  }}
                 />
-                <select 
-                  className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 outline-none focus:ring-4 focus:ring-blue-100 transition-all font-medium"
-                  onChange={e => setTempProfile({...tempProfile, studentType: e.target.value as StudentType})}
-                >
-                  <option value={StudentType.UNIVERSITY}>Đại học</option>
-                  <option value={StudentType.COLLEGE}>Cao đẳng</option>
-                </select>
+                {errors.fullName && (
+                  <p className="text-red-500 text-sm mt-1.5 font-medium">⚠️ {errors.fullName}</p>
+                )}
               </div>
-              <input 
-                placeholder="Khoa đào tạo" 
-                className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 outline-none focus:ring-4 focus:ring-blue-100 transition-all"
-                onChange={e => setTempProfile({...tempProfile, faculty: e.target.value})}
-              />
+              <div>
+                <input 
+                  placeholder="Mã số sinh viên (MSSV)" 
+                  className={`w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-4 transition-all border-2 ${
+                    errors.mssv 
+                      ? 'border-red-400 focus:ring-red-100 focus:border-red-400' 
+                      : 'border-slate-200 focus:ring-blue-100'
+                  }`}
+                  onChange={e => {
+                    setTempProfile({...tempProfile, mssv: e.target.value});
+                    if (errors.mssv) setErrors({...errors, mssv: ''});
+                  }}
+                />
+                {errors.mssv && (
+                  <p className="text-red-500 text-sm mt-1.5 font-medium">⚠️ {errors.mssv}</p>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <input 
+                    placeholder="Lớp" 
+                    className={`w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-4 transition-all border-2 ${
+                      errors.className 
+                        ? 'border-red-400 focus:ring-red-100 focus:border-red-400' 
+                        : 'border-slate-200 focus:ring-blue-100'
+                    }`}
+                    onChange={e => {
+                      setTempProfile({...tempProfile, className: e.target.value});
+                      if (errors.className) setErrors({...errors, className: ''});
+                    }}
+                  />
+                  {errors.className && (
+                    <p className="text-red-500 text-sm mt-1.5 font-medium">⚠️ {errors.className}</p>
+                  )}
+                </div>
+                <div>
+                  <select 
+                    className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-slate-200 outline-none focus:ring-4 focus:ring-blue-100 transition-all font-medium"
+                    onChange={e => setTempProfile({...tempProfile, studentType: e.target.value as StudentType})}
+                  >
+                    <option value={StudentType.UNIVERSITY}>Đại học</option>
+                    <option value={StudentType.COLLEGE}>Cao đẳng</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <input 
+                  placeholder="Khoa đào tạo" 
+                  className={`w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-4 transition-all border-2 ${
+                    errors.faculty 
+                      ? 'border-red-400 focus:ring-red-100 focus:border-red-400' 
+                      : 'border-slate-200 focus:ring-blue-100'
+                  }`}
+                  onChange={e => {
+                    setTempProfile({...tempProfile, faculty: e.target.value});
+                    if (errors.faculty) setErrors({...errors, faculty: ''});
+                  }}
+                />
+                {errors.faculty && (
+                  <p className="text-red-500 text-sm mt-1.5 font-medium">⚠️ {errors.faculty}</p>
+                )}
+              </div>
             </div>
             <button 
-              onClick={() => {
-                if (tempProfile.mssv && tempProfile.faculty) {
-                  setProfile({...tempProfile, userId: authUser?.id || 'guest'} as UserProfile);
-                } else {
-                  alert("Vui lòng nhập đầy đủ thông tin.");
-                }
-              }}
+              onClick={handleContinue}
               className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold text-lg shadow-lg shadow-blue-200 flex items-center justify-center gap-2 transition-all mt-6"
             >
               TIẾP TỤC <ArrowRight size={20} />
@@ -132,6 +226,7 @@ const StudentView: React.FC<Props> = ({
               Chào, {authUser?.name.split(' ').pop()} 👋
             </h2>
             <div className="flex items-center gap-3 mt-2">
+              <span className="text-sm font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-lg uppercase">{profile.fullName}</span>
               <span className="text-sm font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-lg uppercase">MSSV: {profile.mssv}</span>
               <span className="text-sm font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-lg uppercase">{profile.faculty}</span>
               <span className="text-sm font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-lg uppercase">{profile.studentType === StudentType.UNIVERSITY ? 'Đại học' : 'Cao đẳng'}</span>

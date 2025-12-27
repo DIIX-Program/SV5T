@@ -1,4 +1,3 @@
-
 export enum StudentType {
   UNIVERSITY = 'UNIVERSITY',
   COLLEGE = 'COLLEGE'
@@ -41,9 +40,10 @@ export interface User {
 export interface UserProfile {
   userId: string;
   mssv: string;
+  fullName?: string; // Thêm trường họ tên (optional để tương thích ngược)
   className: string;
   faculty: string;
-  studentType: StudentType;
+  studentType: StudentType; 
 }
 
 export interface EvidenceFile {

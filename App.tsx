@@ -101,6 +101,11 @@ function App() {
     evaluateReadiness(criteria, profile?.studentType || StudentType.UNIVERSITY), 
     [criteria, profile]
   );
+  // Email validation helper
+  const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
 
   const handleLogin = (type: 'google' | 'phone' | 'guest' | 'admin') => {
     if (type === 'admin') {
@@ -109,7 +114,7 @@ function App() {
     }
     const newUser: AuthUser = {
       id: Math.random().toString(36).substr(2, 9),
-      name: type === 'guest' ? 'Khách viếng thăm' : 'Nguyễn Văn A',
+      name: type === 'guest' ? 'Khách' : 'Nguyễn Văn A',
       email: type === 'guest' ? '' : 'sv.nguyenvana@university.edu.vn',
       role: UserRole.USER,
       isGuest: type === 'guest'
