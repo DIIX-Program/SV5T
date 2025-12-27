@@ -49,7 +49,8 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
     date: '',
     description: '',
     categories: [] as string[],
-    location: ''
+    location: '',
+    link: ''
   });
   
   // Student filters
@@ -123,7 +124,8 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
       // Create new event
       const newEvent: UniversityEvent = {
         id: Math.random().toString(36).substr(2, 9),
-        ...eventForm
+        ...eventForm,
+        link: eventForm.link || undefined
       };
       setEvents([...events, newEvent]);
     }
@@ -133,7 +135,8 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
       date: '',
       description: '',
       categories: [],
-      location: ''
+      location: '',
+      link: ''
     });
     setShowEventForm(false);
     alert('Sự kiện đã được ' + (editingEventId ? 'cập nhật' : 'tạo') + ' thành công!');
@@ -145,7 +148,8 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
       date: event.date,
       description: event.description,
       categories: event.categories,
-      location: event.location
+      location: event.location,
+      link: event.link || ''
     });
     setEditingEventId(event.id);
     setShowEventForm(true);
@@ -191,16 +195,41 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
   const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
 
   const exportToExcel = () => {
-    alert("Hệ thống đang trích xuất dữ liệu SV5T toàn trường. File Excel (.xlsx) sẽ được tải xuống sau giây lát...");
-    setTimeout(() => {
-      const data = JSON.stringify(submissions);
-      const blob = new Blob([data], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `DANH_SACH_SV5T_EXPORT_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.json`;
-      a.click();
-    }, 1500);
+    if (mockStudents.length === 0) {
+      alert('Không có dữ liệu để xuất');
+      return;
+    }
+
+    // Create CSV content
+    const headers = ['MSSV', 'Tên sinh viên', 'Khoa', 'GPA', 'Tiến độ (%)', 'Trạng thái'];
+    const rows = mockStudents.map(s => [
+      s.mssv,
+      s.name,
+      s.faculty,
+      s.gpa,
+      s.completionPercent,
+      s.status
+    ]);
+
+    let csvContent = headers.join(',') + '\n';
+    rows.forEach(row => {
+      csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
+    });
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `DANH_SACH_SINH_VIEN_SV5T_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    alert('✅ File Excel đã được xuất thành công!');
   };
 
   return (
@@ -497,23 +526,34 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Tiêu chí hỗ trợ</label>
-                    <div className="flex flex-wrap gap-2">
-                      {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
-                        <button
-                          key={key}
-                          onClick={() => toggleCategory(key)}
-                          className={`text-xs font-bold px-3 py-2 rounded-xl transition-all border ${
-                            eventForm.categories.includes(key)
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-blue-200'
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Link đăng ký (Tùy chọn)</label>
+                <input 
+                  type="text"
+                  value={eventForm.link}
+                  onChange={(e) => setEventForm({...eventForm, link: e.target.value})}
+                  placeholder="Vd: https://forms.gle/... hoặc https://dksk.hust.edu.vn/..."
+                  className="w-full px-4 py-3 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-100 transition-all"
+                />
+              </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Tiêu chí hỗ trợ</label>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+                      <button
+                        key={key}
+                        onClick={() => toggleCategory(key)}
+                        className={`text-xs font-bold px-3 py-2 rounded-xl transition-all border ${
+                          eventForm.categories.includes(key)
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-blue-200'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
@@ -539,7 +579,7 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                     onClick={() => {
                       setShowEventForm(false);
                       setEditingEventId(null);
-                      setEventForm({ title: '', date: '', description: '', categories: [], location: '' });
+                      setEventForm({ title: '', date: '', description: '', categories: [], location: '', link: '' });
                     }}
                     className="flex-1 bg-slate-100 text-slate-700 px-6 py-3 rounded-2xl font-bold hover:bg-slate-200 transition-colors"
                   >
@@ -585,6 +625,16 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                        {event.date}
                     </div>
                   </div>
+                  {event.link && (
+                    <a 
+                      href={event.link} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="w-full mt-4 py-3 bg-blue-50 text-blue-600 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-blue-100 transition-colors text-center border border-blue-100 flex items-center justify-center gap-2"
+                    >
+                      🔗 Đăng ký tham dự
+                    </a>
+                  )}
                 </div>
               ))}
             </div>

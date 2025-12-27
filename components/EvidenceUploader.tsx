@@ -16,15 +16,33 @@ const EvidenceUploader: React.FC<Props> = ({ submissions, setSubmissions, userId
   const [achievementDate, setAchievementDate] = useState('');
   const [files, setFiles] = useState<EvidenceFile[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const uploadedFiles = e.target.files;
+    if (!uploadedFiles) return;
+
+    Array.from(uploadedFiles).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const newFile: EvidenceFile = {
+          id: Math.random().toString(36).substr(2, 9),
+          name: file.name,
+          url: event.target?.result as string,
+          type: file.type
+        };
+        setFiles(prev => [...prev, newFile]);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const handleAddFile = () => {
-    const newFile: EvidenceFile = {
-      id: Math.random().toString(36).substr(2, 5),
-      name: `minh-chung-${files.length + 1}.pdf`,
-      url: '#',
-      type: 'application/pdf'
-    };
-    setFiles([...files, newFile]);
+    fileInputRef.current?.click();
   };
 
   const toggleCategory = (cat: string) => {
@@ -131,14 +149,22 @@ const EvidenceUploader: React.FC<Props> = ({ submissions, setSubmissions, userId
             {/* Quản lý nhiều file */}
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Tệp đính kèm ({files.length})</label>
+              <input 
+                ref={fileInputRef}
+                type="file" 
+                multiple
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
               <div className="space-y-2 mb-4">
                 {files.map(f => (
                   <div key={f.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <FileText size={16} className="text-blue-500" />
-                      <span className="text-xs font-medium text-slate-600">{f.name}</span>
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <FileText size={16} className="text-blue-500 shrink-0" />
+                      <span className="text-xs font-medium text-slate-600 truncate">{f.name}</span>
                     </div>
-                    <button onClick={() => setFiles(files.filter(file => file.id !== f.id))} className="text-rose-400 hover:text-rose-600">
+                    <button onClick={() => setFiles(files.filter(file => file.id !== f.id))} className="text-rose-400 hover:text-rose-600 shrink-0 ml-2">
                       <X size={14} />
                     </button>
                   </div>
@@ -146,9 +172,9 @@ const EvidenceUploader: React.FC<Props> = ({ submissions, setSubmissions, userId
               </div>
               <button 
                 onClick={handleAddFile}
-                className="flex items-center gap-2 text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors"
+                className="flex items-center gap-2 text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors px-4 py-2 rounded-xl border border-blue-200 hover:bg-blue-50"
               >
-                <Paperclip size={14} /> Thêm tệp minh chứng (.jpg, .pdf)
+                <Upload size={14} /> Chọn tệp từ máy
               </button>
             </div>
 

@@ -202,7 +202,7 @@ const StudentView: React.FC<Props> = ({
               <div className="space-y-5">
                 {recommendedEvents.length > 0 ? (
                   recommendedEvents.map(event => (
-                    <div key={event.id} className="p-5 bg-slate-800/40 rounded-3xl border border-slate-700/50 group hover:border-blue-500/50 transition-all cursor-pointer">
+                    <div key={event.id} className="p-5 bg-slate-800/40 rounded-3xl border border-slate-700/50 group hover:border-blue-500/50 transition-all">
                       <div className="flex justify-between items-start mb-3">
                         <div className="flex flex-wrap gap-1">
                           {event.categories.map(c => (
@@ -217,9 +217,18 @@ const StudentView: React.FC<Props> = ({
                       <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed mb-4">{event.description}</p>
                       <div className="flex items-center justify-between pt-4 border-t border-slate-700/50">
                         <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">📍 {event.location}</span>
-                        <span className="text-[10px] text-blue-400 font-black uppercase tracking-widest flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          Đăng ký <ExternalLink size={10}/>
-                        </span>
+                        {event.link ? (
+                          <a 
+                            href={event.link} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-[10px] text-blue-400 font-black uppercase tracking-widest flex items-center gap-1 hover:text-blue-300 transition-colors"
+                          >
+                            Đăng ký <ExternalLink size={12}/>
+                          </a>
+                        ) : (
+                          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest italic">Chưa có link</span>
+                        )}
                       </div>
                     </div>
                   ))
