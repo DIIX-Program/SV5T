@@ -15,29 +15,16 @@ if not exist "node_modules\" (
   echo.
 )
 
-REM Check if .env exists
-if not exist ".env" (
-  echo ⚠️  .env file not found. Creating from template...
-  if exist ".env.example" (
-    copy .env.example .env
-    echo ✅ .env created - Please update DATABASE_URL
-    echo.
-    pause
-  )
-)
-
-REM Check if Prisma client is generated
-if not exist "node_modules\.prisma\client" (
-  echo Generating Prisma client...
-  call npm run prisma:generate
-  echo.
-)
+REM One-click setup (copies .env if missing and validates files)
+echo Running npm run setup ...
+call npm run setup
+echo.
 
 REM Start servers
 echo ✅ Starting development servers...
 echo.
 echo 🔸 Backend: http://localhost:5000
-echo 🔸 Frontend: http://localhost:5173
+echo 🔸 Frontend: http://localhost:3000
 echo 🔸 Prisma Studio: npm run prisma:studio
 echo.
 
