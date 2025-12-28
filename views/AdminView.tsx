@@ -876,18 +876,18 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">??a ?i?m</label>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Địa điểm</label>
                     <input
                       type="text"
                       value={eventForm.location}
                       onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })}
-                      placeholder="Vd: H?i tr??ng A, Ph�ng B.201..."
+                      placeholder="Vd: Hội trường A, Phòng B.201..."
                       className="w-full px-4 py-3 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-100 transition-all"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Link ??ng k� (T�y ch?n)</label>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Link đăng ký (Tùy chọn)</label>
                     <input
                       type="text"
                       value={eventForm.link}
