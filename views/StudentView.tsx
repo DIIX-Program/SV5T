@@ -258,7 +258,14 @@ const StudentView: React.FC<Props> = ({
               </section>
 
               <section>
-                <EvidenceUploader submissions={submissions} setSubmissions={setSubmissions} userId={authUser?.id || 'guest'} />
+                <EvidenceUploader
+                  submissions={submissions}
+                  setSubmissions={setSubmissions}
+                  userId={authUser?.id || 'guest'}
+                  studentName={profile.fullName || profile.name}
+                  studentMssv={profile.mssv}
+                  faculty={profile.faculty}
+                />
               </section>
             </>
           ) : confessions && setConfessions ? (

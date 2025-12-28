@@ -59,6 +59,10 @@ export interface UserProfile {
   className: string;
   faculty: string;
   studentType: StudentType;
+  gpa?: number;
+  trainingPoints?: number;
+  evaluationStatus?: EvaluationStatus;
+  readinessScore?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -73,6 +77,9 @@ export interface EvidenceFile {
 export interface EvidenceSubmission {
   id: string;
   userId: string;
+  studentName?: string;
+  studentMssv?: string;
+  faculty?: string;
   criteriaKeys: string[]; // Một minh chứng có thể thuộc nhiều tiêu chí
   description: string;
   achievementDate: string;

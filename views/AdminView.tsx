@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import jsPDF from 'jspdf';
-import { EvidenceSubmission, EvidenceStatus, UniversityEvent, EvaluationStatus, User, Scholarship } from '../types';
+import { EvidenceSubmission, EvidenceStatus, EvidenceFile, UniversityEvent, EvaluationStatus, User, Scholarship } from '../types';
 import bcrypt from 'bcryptjs';
 import {
   Users,
@@ -10,6 +10,7 @@ import {
   BarChart3,
   CheckCircle,
   XCircle,
+  X,
   Clock,
   Download,
   Filter,
@@ -61,6 +62,9 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
   // Students data from API
   const [students, setStudents] = useState<any[]>([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
+  const [showFileModal, setShowFileModal] = useState(false);
+  const [fileModalTitle, setFileModalTitle] = useState('');
+  const [fileModalFiles, setFileModalFiles] = useState<EvidenceFile[]>([]);
 
   // Fetch students when tab changes to students
   useEffect(() => {
@@ -121,6 +125,12 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
       if (!comment) return;
     }
     setSubmissions(submissions.map(s => s.id === id ? { ...s, status, adminComment: comment || s.adminComment } : s));
+  };
+
+  const openFileModal = (submission: EvidenceSubmission) => {
+    setFileModalFiles(submission.files || []);
+    setFileModalTitle(submission.description || 'Minh chứng');
+    setShowFileModal(true);
   };
 
   const handleChangePassword = () => {
@@ -238,22 +248,56 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
   };
 
   // Filter and search submissions
-  const filteredSubmissions = submissions.filter(s =>
-    searchTerm === '' ||
-    s.userId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredSubmissions = submissions.filter(s => {
+    const term = searchTerm.toLowerCase();
+    if (!term) return true;
+    return (
+      (s.userId || '').toLowerCase().includes(term) ||
+      (s.studentMssv || '').toLowerCase().includes(term) ||
+      (s.studentName || '').toLowerCase().includes(term) ||
+      s.description.toLowerCase().includes(term)
+    );
+  });
 
   // Filter and paginate students - using API data
-  const studentList = students.map((student: any) => ({
-    id: student._id,
-    mssv: student.mssv,
-    name: student.fullName,
-    faculty: student.faculty,
-    status: 'Đủ điều kiện',
-    gpa: student.gpa || 0,
-    completionPercent: 100
-  }));
+  const studentList = students.map((student: any) => {
+    const gpa = typeof student.gpa === 'number' ? student.gpa
+      : (typeof student.profile?.gpa === 'number' ? student.profile.gpa : 0);
+    const readinessScore = typeof student.readinessScore === 'number' ? student.readinessScore
+      : (typeof student.profile?.readinessScore === 'number' ? student.profile.readinessScore : 0);
+    const evaluationStatus = student.evaluationStatus || student.profile?.evaluationStatus || 'NOT_ELIGIBLE';
+    
+    let statusLabel = 'Chưa đạt';
+    if (evaluationStatus === 'ELIGIBLE') statusLabel = 'Đủ điều kiện';
+    else if (evaluationStatus === 'ALMOST_READY') statusLabel = 'Gần đạt';
+
+    return {
+      id: student._id,
+      mssv: student.mssv,
+      name: student.fullName || student.profile?.name || student.name || 'Chưa cập nhật',
+      faculty: student.faculty || student.profile?.faculty || 'Chưa cập nhật',
+      status: statusLabel,
+      gpa,
+      completionPercent: Math.min(100, Math.max(0, readinessScore))
+    };
+  });
+
+  const facultyOptions = Array.from(new Set(studentList.map(s => s.faculty).filter(f => f !== 'Chưa cập nhật')));
+  const statusOptions = Array.from(new Set(studentList.map(s => s.status).filter(Boolean)));
+
+  // Calculate real faculty readiness data
+  const facultyReadinessData = facultyOptions.map((faculty) => {
+    const facultyStudents = studentList.filter(s => s.faculty === faculty);
+    const eligibleCount = facultyStudents.filter(s => s.status === 'Đủ điều kiện').length;
+    const totalCount = facultyStudents.length;
+    const percent = totalCount > 0 ? Math.round((eligibleCount / totalCount) * 100) : 0;
+    return {
+      name: faculty,
+      percent,
+      count: totalCount,
+      color: percent >= 70 ? 'bg-blue-500' : (percent >= 50 ? 'bg-amber-500' : 'bg-rose-500')
+    };
+  }).sort((a, b) => b.percent - a.percent);
 
   const filteredStudents = studentList.filter(s => {
     if (studentFilters.faculty && s.faculty !== studentFilters.faculty) return false;
@@ -508,17 +552,15 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
               <div className="lg:col-span-8 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="font-black text-slate-800 uppercase tracking-tight text-base">Mức độ sẵn sàng theo Khoa/Viện</h3>
-                  <button className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-xl hover:bg-blue-100 transition-colors">Xem chi tiết</button>
+                  <button
+                    onClick={() => setTab('students')}
+                    className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-xl hover:bg-blue-100 transition-colors"
+                  >
+                    Xem chi tiết
+                  </button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                  {[
-                    { name: 'Công nghệ Thông tin', percent: 88, color: 'bg-blue-500', count: 450 },
-                    { name: 'Kinh tế - Quản trị', percent: 64, color: 'bg-amber-500', count: 320 },
-                    { name: 'Cơ khí - Kỹ thuật', percent: 42, color: 'bg-rose-500', count: 180 },
-                    { name: 'Ngôn ngữ & Văn hóa', percent: 76, color: 'bg-emerald-500', count: 210 },
-                    { name: 'Khoa học ứng dụng', percent: 55, color: 'bg-indigo-500', count: 125 },
-                    { name: 'Du lịch - Nhà hàng', percent: 38, color: 'bg-orange-500', count: 90 },
-                  ].map((khoa, i) => (
+                  {facultyReadinessData.length > 0 ? facultyReadinessData.map((khoa, i) => (
                     <div key={i} className="space-y-2">
                       <div className="flex justify-between items-end">
                         <div className="space-y-0.5">
@@ -531,7 +573,11 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                         <div className={`h-full ${khoa.color} rounded-full transition-all duration-1000 ease-out`} style={{ width: `${khoa.percent}%` }} />
                       </div>
                     </div>
-                  ))}
+                  )) : (
+                    <div className="col-span-2 text-center text-slate-400 italic py-8">
+                      Chưa có dữ liệu sinh viên. Vui lòng tải dữ liệu từ tab "Hồ sơ Sinh viên".
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -590,50 +636,62 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                     <p className="text-sm font-medium">Hiện không có hồ sơ nào trong hàng đợi.</p>
                   </div>
                 ) : (
-                  filteredSubmissions.map((s) => (
-                    <div key={s.id} className="p-4">
-                      <div className="flex items-center justify-between">
-                        <p className="font-black text-slate-800 text-sm">#{s.userId.toUpperCase().slice(0, 8)}</p>
-                        <span className="text-[10px] text-slate-400 font-bold uppercase">Nộp: {s.submittedAt}</span>
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {s.criteriaKeys.map(ck => (
-                          <span key={ck} className="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg uppercase tracking-tight border border-blue-100/50">
-                            {CATEGORY_LABELS[ck as keyof typeof CATEGORY_LABELS]}
+                  filteredSubmissions.map((s) => {
+                    const canAct = s.status === EvidenceStatus.PENDING;
+                    return (
+                      <div key={s.id} className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-black text-slate-800 text-sm">{s.studentName || 'Sinh viên'}</p>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase">MSSV: {s.studentMssv || s.userId}</p>
+                            {s.faculty && <p className="text-[10px] text-slate-400 font-bold uppercase">{s.faculty}</p>}
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-bold uppercase">Nộp: {s.submittedAt}</span>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {s.criteriaKeys.map(ck => (
+                            <span key={ck} className="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg uppercase tracking-tight border border-blue-100/50">
+                              {CATEGORY_LABELS[ck as keyof typeof CATEGORY_LABELS]}
+                            </span>
+                          ))}
+                        </div>
+                        <p className="mt-3 text-sm text-slate-700 leading-snug">{s.description}</p>
+                        <button
+                          onClick={() => openFileModal(s)}
+                          className="mt-2 text-blue-600 hover:text-blue-700 text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5"
+                        >
+                          <Eye size={12} /> Xem {s.files.length} tệp
+                        </button>
+                        <div className="mt-3 flex items-center justify-between">
+                          <span className={`text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest border ${s.status === EvidenceStatus.APPROVED ? 'bg-green-50 text-green-600 border-green-100' :
+                            s.status === EvidenceStatus.REJECTED ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-amber-50 text-amber-600 border-amber-100'
+                            }`}>
+                            {s.status === EvidenceStatus.PENDING ? 'Chờ duyệt' : (s.status === EvidenceStatus.APPROVED ? 'Hợp lệ' : 'Từ chối')}
                           </span>
-                        ))}
-                      </div>
-                      <p className="mt-3 text-sm text-slate-700 leading-snug">{s.description}</p>
-                      <button className="mt-2 text-blue-600 hover:text-blue-700 text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5">
-                        <Eye size={12} /> Xem {s.files.length} tệp
-                      </button>
-                      <div className="mt-3 flex items-center justify-between">
-                        <span className={`text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest border ${s.status === EvidenceStatus.APPROVED ? 'bg-green-50 text-green-600 border-green-100' :
-                          s.status === EvidenceStatus.REJECTED ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-amber-50 text-amber-600 border-amber-100'
-                          }`}>
-                          {s.status === EvidenceStatus.PENDING ? 'Chờ duyệt' : (s.status === EvidenceStatus.APPROVED ? 'Hợp lệ' : 'Từ chối')}
-                        </span>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleAction(s.id, EvidenceStatus.APPROVED)}
-                            disabled={s.status === EvidenceStatus.APPROVED}
-                            className="p-2 text-green-600 bg-green-50/50 hover:bg-green-100 rounded-xl transition-all disabled:opacity-20 border border-green-100/30"
-                            title="Xác nhận Hợp lệ"
-                          >
-                            <CheckCircle size={20} />
-                          </button>
-                          <button
-                            onClick={() => handleAction(s.id, EvidenceStatus.REJECTED)}
-                            disabled={s.status === EvidenceStatus.REJECTED}
-                            className="p-2 text-rose-600 bg-rose-50/50 hover:bg-rose-100 rounded-xl transition-all disabled:opacity-20 border border-rose-100/30"
-                            title="Yêu cầu Bổ sung/Từ chối"
-                          >
-                            <XCircle size={20} />
-                          </button>
+                          {canAct ? (
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleAction(s.id, EvidenceStatus.APPROVED)}
+                                className="p-2 text-green-600 bg-green-50/50 hover:bg-green-100 rounded-xl transition-all border border-green-100/30"
+                                title="Xác nhận Hợp lệ"
+                              >
+                                <CheckCircle size={20} />
+                              </button>
+                              <button
+                                onClick={() => handleAction(s.id, EvidenceStatus.REJECTED)}
+                                className="p-2 text-rose-600 bg-rose-50/50 hover:bg-rose-100 rounded-xl transition-all border border-rose-100/30"
+                                title="Yêu cầu Bổ sung/Từ chối"
+                              >
+                                <XCircle size={20} />
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] font-bold text-slate-400">Đã xử lý</span>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
 
@@ -658,61 +716,71 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                         </td>
                       </tr>
                     ) : (
-                      filteredSubmissions.map((s) => (
-                        <tr key={s.id} className="hover:bg-slate-50/50 transition-colors group">
-                          <td className="px-8 py-7">
-                            <p className="font-black text-slate-800 text-sm">#{s.userId.toUpperCase().slice(0, 8)}</p>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-tight">Nộp: {s.submittedAt}</p>
-                          </td>
-                          <td className="px-8 py-7">
-                            <div className="flex flex-wrap gap-1 max-w-[220px]">
-                              {s.criteriaKeys.map(ck => (
-                                <span key={ck} className="text-[9px] font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg uppercase tracking-tight border border-blue-100/50">
-                                  {CATEGORY_LABELS[ck as keyof typeof CATEGORY_LABELS]}
+                      filteredSubmissions.map((s) => {
+                        const canAct = s.status === EvidenceStatus.PENDING;
+                        return (
+                          <tr key={s.id} className="hover:bg-slate-50/50 transition-colors group">
+                            <td className="px-8 py-7">
+                              <p className="font-black text-slate-800 text-sm">{s.studentName || 'Sinh viên'}</p>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-tight">MSSV: {s.studentMssv || s.userId}</p>
+                              {s.faculty && <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-tight">{s.faculty}</p>}
+                              <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-tight">Nộp: {s.submittedAt}</p>
+                            </td>
+                            <td className="px-8 py-7">
+                              <div className="flex flex-wrap gap-1 max-w-[220px]">
+                                {s.criteriaKeys.map(ck => (
+                                  <span key={ck} className="text-[9px] font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg uppercase tracking-tight border border-blue-100/50">
+                                    {CATEGORY_LABELS[ck as keyof typeof CATEGORY_LABELS]}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="px-8 py-7">
+                              <p className="font-bold text-slate-800 text-sm mb-1 leading-snug">{s.description}</p>
+                              <button
+                                onClick={() => openFileModal(s)}
+                                className="text-blue-500 hover:text-blue-700 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 mt-2"
+                              >
+                                <Eye size={12} /> Xem {s.files.length} tệp minh chứng
+                              </button>
+                            </td>
+                            <td className="px-8 py-7">
+                              <div className="flex flex-col gap-1.5">
+                                <span className={`text-[9px] w-fit font-black px-3 py-1.5 rounded-full uppercase tracking-widest border ${s.status === EvidenceStatus.APPROVED ? 'bg-green-50 text-green-600 border-green-100' :
+                                  s.status === EvidenceStatus.REJECTED ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-amber-50 text-amber-600 border-amber-100'
+                                  }`}>
+                                  {s.status === EvidenceStatus.PENDING ? 'Chờ duyệt' : (s.status === EvidenceStatus.APPROVED ? 'Hợp lệ' : 'Từ chối')}
                                 </span>
-                              ))}
-                            </div>
-                          </td>
-                          <td className="px-8 py-7">
-                            <p className="font-bold text-slate-800 text-sm mb-1 leading-snug">{s.description}</p>
-                            <button className="text-blue-500 hover:text-blue-700 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 mt-2">
-                              <Eye size={12} /> Xem {s.files.length} tệp minh chứng
-                            </button>
-                          </td>
-                          <td className="px-8 py-7">
-                            <div className="flex flex-col gap-1.5">
-                              <span className={`text-[9px] w-fit font-black px-3 py-1.5 rounded-full uppercase tracking-widest border ${s.status === EvidenceStatus.APPROVED ? 'bg-green-50 text-green-600 border-green-100' :
-                                s.status === EvidenceStatus.REJECTED ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-amber-50 text-amber-600 border-amber-100'
-                                }`}>
-                                {s.status === EvidenceStatus.PENDING ? 'Chờ duyệt' : (s.status === EvidenceStatus.APPROVED ? 'Hợp lệ' : 'Từ chối')}
-                              </span>
-                              {s.status === EvidenceStatus.REJECTED && s.adminComment && (
-                                <p className="text-[10px] text-rose-500 italic max-w-[150px] leading-tight">Lý do: {s.adminComment}</p>
+                                {s.status === EvidenceStatus.REJECTED && s.adminComment && (
+                                  <p className="text-[10px] text-rose-500 italic max-w-[150px] leading-tight">Lý do: {s.adminComment}</p>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-8 py-7">
+                              {canAct ? (
+                                <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    onClick={() => handleAction(s.id, EvidenceStatus.APPROVED)}
+                                    className="p-3 text-green-600 bg-green-50/50 hover:bg-green-100 rounded-2xl transition-all border border-green-100/30"
+                                    title="Xác nhận Hợp lệ"
+                                  >
+                                    <CheckCircle size={22} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleAction(s.id, EvidenceStatus.REJECTED)}
+                                    className="p-3 text-rose-600 bg-rose-50/50 hover:bg-rose-100 rounded-2xl transition-all border border-rose-100/30"
+                                    title="Yêu cầu Bổ sung/Từ chối"
+                                  >
+                                    <XCircle size={22} />
+                                  </button>
+                                </div>
+                              ) : (
+                                <p className="text-[10px] font-bold text-slate-400 text-center">Đã xử lý</p>
                               )}
-                            </div>
-                          </td>
-                          <td className="px-8 py-7">
-                            <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button
-                                onClick={() => handleAction(s.id, EvidenceStatus.APPROVED)}
-                                disabled={s.status === EvidenceStatus.APPROVED}
-                                className="p-3 text-green-600 bg-green-50/50 hover:bg-green-100 rounded-2xl transition-all disabled:opacity-20 border border-green-100/30"
-                                title="Xác nhận Hợp lệ"
-                              >
-                                <CheckCircle size={22} />
-                              </button>
-                              <button
-                                onClick={() => handleAction(s.id, EvidenceStatus.REJECTED)}
-                                disabled={s.status === EvidenceStatus.REJECTED}
-                                className="p-3 text-rose-600 bg-rose-50/50 hover:bg-rose-100 rounded-2xl transition-all disabled:opacity-20 border border-rose-100/30"
-                                title="Yêu cầu Bổ sung/Từ chối"
-                              >
-                                <XCircle size={22} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -914,10 +982,9 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                   className="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-slate-600 font-bold text-sm outline-none focus:ring-4 focus:ring-blue-100"
                 >
                   <option value="">Tất cả khoa</option>
-                  <option value="Công nghệ Thông tin">Công nghệ Thông tin</option>
-                  <option value="Kinh tế - Quản trị">Kinh tế - Quản trị</option>
-                  <option value="Cơ khí - Kỹ thuật">Cơ khí - Kỹ thuật</option>
-                  <option value="Ngôn ngữ & Văn hóa">Ngôn ngữ & Văn hóa</option>
+                  {facultyOptions.map((f) => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
                 </select>
                 <select
                   value={studentFilters.status}
@@ -928,9 +995,9 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
                   className="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-slate-600 font-bold text-sm outline-none focus:ring-4 focus:ring-blue-100"
                 >
                   <option value="">Tất cả trạng thái</option>
-                  <option value="Đủ điều kiện">Đủ điều kiện</option>
-                  <option value="Gần đạt">Gần đạt</option>
-                  <option value="Chưa đạt">Chưa đạt</option>
+                  {statusOptions.map((st) => (
+                    <option key={st} value={st}>{st}</option>
+                  ))}
                 </select>
               </div>
             </header>
@@ -1278,6 +1345,48 @@ const AdminView: React.FC<Props> = ({ submissions, setSubmissions, events, setEv
           </div>
         )}
       </main>
+
+      {showFileModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[80vh] overflow-y-auto border border-slate-200">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase">Minh chứng</p>
+                <p className="text-base font-black text-slate-800 leading-tight">{fileModalTitle}</p>
+              </div>
+              <button onClick={() => setShowFileModal(false)} className="text-slate-400 hover:text-slate-700">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {fileModalFiles.length === 0 && (
+                <p className="text-sm text-slate-500 italic">Không có tệp đính kèm.</p>
+              )}
+              {fileModalFiles.map((file) => (
+                <div key={file.id} className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-slate-800 truncate">{file.name}</p>
+                      <p className="text-[11px] text-slate-400 font-semibold">{file.type || 'Không rõ định dạng'}</p>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <a href={file.url} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 rounded-xl border border-blue-100 hover:bg-blue-100">Xem</a>
+                      <a href={file.url} download={file.name} className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-white rounded-xl border border-slate-200 hover:bg-slate-50">Tải</a>
+                    </div>
+                  </div>
+                  {file.type?.startsWith('image/') && (
+                    <img src={file.url} alt={file.name} className="mt-3 rounded-xl border border-slate-100 max-h-80 object-contain w-full" />
+                  )}
+                  {file.type === 'application/pdf' && (
+                    <embed src={file.url} className="mt-3 w-full h-64 border border-slate-100 rounded-xl" />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

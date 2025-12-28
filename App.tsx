@@ -162,6 +162,22 @@ function App() {
     [criteria, profile]
   );
 
+  // Update profile with evaluation scores when criteria change
+  useEffect(() => {
+    if (profile && authUser?.role === 'STUDENT') {
+      const updatedProfile = {
+        ...profile,
+        gpa: criteria.gpa,
+        trainingPoints: criteria.trainingPoints,
+        evaluationStatus: evaluationResult.overallStatus,
+        readinessScore: evaluationResult.readinessScore
+      };
+      if (JSON.stringify(profile) !== JSON.stringify(updatedProfile)) {
+        setProfile(updatedProfile);
+      }
+    }
+  }, [evaluationResult, criteria, profile, authUser]);
+
   const handleOpenAuthModal = (mode: 'login' | 'register' | 'admin') => {
     setAuthMode(mode);
     setShowAuthModal(true);

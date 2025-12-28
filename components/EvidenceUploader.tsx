@@ -8,9 +8,12 @@ interface Props {
   submissions: EvidenceSubmission[];
   setSubmissions: (s: EvidenceSubmission[]) => void;
   userId: string;
+  studentName?: string;
+  studentMssv?: string;
+  faculty?: string;
 }
 
-const EvidenceUploader: React.FC<Props> = ({ submissions, setSubmissions, userId }) => {
+const EvidenceUploader: React.FC<Props> = ({ submissions, setSubmissions, userId, studentName, studentMssv, faculty }) => {
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
   const [description, setDescription] = useState('');
   const [achievementDate, setAchievementDate] = useState('');
@@ -62,6 +65,9 @@ const EvidenceUploader: React.FC<Props> = ({ submissions, setSubmissions, userId
     const newSubmission: EvidenceSubmission = {
       id: Math.random().toString(36).substr(2, 9),
       userId,
+      studentName,
+      studentMssv,
+      faculty,
       criteriaKeys: selectedCats,
       description,
       achievementDate,
@@ -153,7 +159,7 @@ const EvidenceUploader: React.FC<Props> = ({ submissions, setSubmissions, userId
                 ref={fileInputRef}
                 type="file" 
                 multiple
-                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.csv"
                 onChange={handleFileUpload}
                 className="hidden"
               />

@@ -26,7 +26,14 @@ const userSchema = new mongoose.Schema(
       studentType: {
         type: String,
         enum: ['UNIVERSITY', 'COLLEGE']
-      }
+      },
+      gpa: Number,
+      trainingPoints: Number,
+      evaluationStatus: {
+        type: String,
+        enum: ['ELIGIBLE', 'ALMOST_READY', 'NOT_ELIGIBLE']
+      },
+      readinessScore: Number
     },
     isActive: {
       type: Boolean,
