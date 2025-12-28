@@ -14,17 +14,30 @@ export const getAllStudents = async (req, res) => {
     const users = await User.find(filter);
 
     // Map User data to expected student format
-    const students = users.map(user => ({
-      _id: user._id,
-      mssv: user.mssv,
-      fullName: user.profile.name,
-      faculty: user.profile.faculty,
-      academicYear: user.profile.academicYear,
-      studentType: user.profile.studentType,
-      gpa: 0, // Default, as User model doesn't have GPA
-      status: 'Đủ điều kiện', // Default status
-      completionPercent: 100 // Default
-    }));
+    const students = users.map(user => {
+      const gpa = user.profile?.gpa || 0;
+      const evaluationStatus = user.profile?.evaluationStatus || 'NOT_ELIGIBLE';
+      const readinessScore = user.profile?.readinessScore || 0;
+
+      // Map evaluationStatus to user-friendly label
+      let statusLabel = 'Chưa đạt';
+      if (evaluationStatus === 'ELIGIBLE') statusLabel = 'Đủ điều kiện';
+      else if (evaluationStatus === 'ALMOST_READY') statusLabel = 'Gần đạt';
+
+      return {
+        _id: user._id,
+        mssv: user.mssv,
+        fullName: user.profile.name,
+        faculty: user.profile.faculty,
+        academicYear: user.profile.academicYear,
+        studentType: user.profile.studentType,
+        gpa,
+        status: statusLabel,
+        evaluationStatus,
+        readinessScore,
+        completionPercent: Math.min(100, Math.max(0, readinessScore))
+      };
+    });
 
     res.json({
       success: true,

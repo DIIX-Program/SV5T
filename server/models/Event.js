@@ -60,7 +60,7 @@ const eventSchema = new mongoose.Schema(
 
 // Index for efficient querying
 eventSchema.index({ month: 1, year: 1 });
-eventSchema.index({ date: 1 });
+// date already has `index: true` on its field; avoid duplicate index warning
 eventSchema.index({ status: 1 });
 
 export default mongoose.model('Event', eventSchema);
