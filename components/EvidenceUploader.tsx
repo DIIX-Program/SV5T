@@ -25,7 +25,7 @@ const EvidenceUploader: React.FC<Props> = ({ submissions, setSubmissions, userId
     const uploadedFiles = e.target.files;
     if (!uploadedFiles) return;
 
-    Array.from(uploadedFiles).forEach(file => {
+    Array.from(uploadedFiles).forEach((file: File) => {
       const reader = new FileReader();
       reader.onload = (event) => {
         const newFile: EvidenceFile = {
