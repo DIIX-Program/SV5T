@@ -4,7 +4,7 @@ import { ShieldCheck, Mail, Phone, Info } from 'lucide-react';
 
 const Footer: React.FC = () => {
   return (
-    <footer className="bg-slate-900 text-slate-400 py-12 px-6 mt-20 border-t border-slate-800">
+    <footer className="bg-slate-900 text-slate-400 py-12 px-6 mt-10 border-t border-slate-800">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-10">
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-white">

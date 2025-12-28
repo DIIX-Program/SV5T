@@ -188,7 +188,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSuccess, 
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-3 max-h-[calc(100vh-300px)] overflow-y-auto">
           {/* Error Message */}
           {error && (
             <div className="flex gap-3 p-4 bg-red-50 border border-red-200 rounded-lg animate-in fade-in slide-in-from-top duration-300">
@@ -219,72 +219,68 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSuccess, 
             )}
           </div>
 
-          {/* Name (Register only) */}
           {mode === 'register' && (
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Họ Tên
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Nhập họ tên"
-                disabled={loading}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100"
-              />
-            </div>
-          )}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Name (Register only) */}
+              <div className="col-span-2">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Họ Tên
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Nhập họ tên"
+                  disabled={loading}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100 text-sm"
+                />
+              </div>
 
-          {/* Class (Register only) */}
-          {mode === 'register' && (
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Lớp
-              </label>
-              <input
-                type="text"
-                value={className}
-                onChange={(e) => setClassName(e.target.value)}
-                placeholder="Ví dụ: CNTT-K65"
-                disabled={loading}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100"
-              />
-            </div>
-          )}
+              {/* Class (Register only) */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Lớp
+                </label>
+                <input
+                  type="text"
+                  value={className}
+                  onChange={(e) => setClassName(e.target.value)}
+                  placeholder="CNTT-K65"
+                  disabled={loading}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100 text-sm"
+                />
+              </div>
 
-          {/* Faculty (Register only) */}
-          {mode === 'register' && (
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Khoa
-              </label>
-              <input
-                type="text"
-                value={faculty}
-                onChange={(e) => setFaculty(e.target.value)}
-                placeholder="Nhập tên khoa"
-                disabled={loading}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100"
-              />
-            </div>
-          )}
+              {/* Student Type (Register only) */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Hệ
+                </label>
+                <select
+                  value={studentType}
+                  onChange={(e) => setStudentType(e.target.value)}
+                  disabled={loading}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100 text-sm"
+                >
+                  <option value="UNIVERSITY">Đại Học</option>
+                  <option value="COLLEGE">Cao Đẳng</option>
+                </select>
+              </div>
 
-          {/* Student Type (Register only) */}
-          {mode === 'register' && (
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Loại Sinh Viên
-              </label>
-              <select
-                value={studentType}
-                onChange={(e) => setStudentType(e.target.value)}
-                disabled={loading}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100"
-              >
-                <option value="UNIVERSITY">Đại Học</option>
-                <option value="COLLEGE">Cao Đẳng</option>
-              </select>
+              {/* Faculty (Register only) */}
+              <div className="col-span-2">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Khoa
+                </label>
+                <input
+                  type="text"
+                  value={faculty}
+                  onChange={(e) => setFaculty(e.target.value)}
+                  placeholder="Tên khoa"
+                  disabled={loading}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100 text-sm"
+                />
+              </div>
             </div>
           )}
 
